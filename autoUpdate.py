@@ -5,13 +5,16 @@ from Encrypt import Encrypt
 
 from fetchData import LiveStreamStatus
 
+from dotenv import load_dotenv # type: ignore
+load_dotenv()
+from os import environ
+
+def load_env_json(key:str):
+    return environ.get(key)
+
 def str_to_bool(s:str) -> bool: 
     return s.lower() in ['true', '1', 'yes', 1, True]
 
-def load_env_json(key:str):
-    with open("env.json", "r") as file: 
-        data = json.load(file)
-    return data[key]
 
 
 AUTO_UPDATE = str_to_bool(load_env_json('AUTO_UPDATE')) and 0

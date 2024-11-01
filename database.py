@@ -1,11 +1,12 @@
-import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
-def load_env_json(key:str) -> str | int:
-    with open("env.json", "r") as file: 
-        data = json.load(file)
-    return data[key]
+from dotenv import load_dotenv # type: ignore
+load_dotenv()
+from os import environ
+
+def load_env_json(key:str):
+    return environ.get(key)
 
 class DatabaseManager:
     def __init__(self, db_name:str):

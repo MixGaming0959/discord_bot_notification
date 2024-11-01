@@ -1,4 +1,3 @@
-import json
 from random import randint
 import asyncio, traceback
 from datetime import datetime, timedelta
@@ -8,10 +7,12 @@ from database import DatabaseManager
 from Encrypt import Encrypt
 import fetchData
 
+from dotenv import load_dotenv # type: ignore
+load_dotenv()
+from os import environ
+
 def load_env_json(key:str):
-    with open("env.json", "r") as file: 
-        data = json.load(file)
-    return data[key]
+    return environ.get(key)
 
 # Setup
 intents = discord.Intents.default()
@@ -120,8 +121,8 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
                 timeNow = datetime.strptime(
                     timeNowFunc().strftime("%Y-%m-%d"), "%Y-%m-%d"
                 )
-
-                if istoday and (start_at > timeNow) :
+                # ตรวจสอบว่าในวันนี้มีไลฟ์หรือไม่
+                if istoday and (start_at < timeNow) :
                     continue
                 found = True
                 embedVtuber.add_field(name='ชื่อไลฟ์', value=f"{stream['title']}\n[Link]({stream['url']})", inline=False)
@@ -188,7 +189,7 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str):
             embedVtuber.set_footer(text=f"Pages: {pageInfo}/{len(data_gen)}")
             embedVtuber.set_thumbnail(url=g['image'])
             listVtuber = db.listVtuberByGen(gen_name)
-            if listVtuber == None or len(listVtuber) == 0:
+            if listVtuber == None or len(listVtuber) == 0 or listVtuber[0] == None:
                 embedVtuber.add_field(name=f"ไม่มี Vtuber ใน Gen {gen_name} นี้", value="ไม่พบข้อมูล", inline=False)
                 continue
             found = False
@@ -273,7 +274,7 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
                 with open(ISUPDATE_PATH, "w") as file:
                     file.write(next_update.strftime(date_format))
 
-        if listVtuber == None or len(listVtuber) == 0:
+        if listVtuber == None or len(listVtuber) == 0 or listVtuber[0] == None:
             await interaction.followup.send(f"ไม่พบข้อมูล {name} ในฐานข้อมูล!")
             return
             
@@ -307,7 +308,7 @@ async def checkLiveStatus(interaction: discord.Interaction, options: discord.app
             listVtuber = db.listVtuberByGen(name)
         else:
             listVtuber = db.listVtuberByGroup(name)
-        if listVtuber == None or len(listVtuber) == 0:
+        if listVtuber == None or len(listVtuber) == 0 or listVtuber[0] == None:
             await interaction.followup.send(f"ไม่พบข้อมูล {name} ในฐานข้อมูล!")
             return
 
