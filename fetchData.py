@@ -5,7 +5,11 @@ from googleapiclient.discovery import build  # type: ignore
 
 
 # ใส่ API Key ที่สร้างไว้
-api_key = "AIzaSyCOozAoiqbvpwNzbXhsDkx_I1lMMo_jafM"
+from dotenv import load_dotenv # type: ignore
+load_dotenv()
+from os import environ
+
+api_key = environ.get("API_KEY")
 
 class LiveStreamStatus():
     def __init__(self, db_path:str, autoUpdate: bool = False):

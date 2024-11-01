@@ -264,6 +264,10 @@ class DatabaseManager:
     
 
 if __name__ == '__main__':
-    db = DatabaseManager('video.db')
+    from dotenv import load_dotenv # type: ignore
+    load_dotenv()
+    from os import environ
+    
+    db = DatabaseManager(environ.get('DB_PATH'))
     
     print(db.getVtuber('KeressaZoulfia'))

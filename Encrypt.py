@@ -3,7 +3,7 @@ from cryptography.fernet import Fernet # type: ignore
 
 class Encrypt:
     def __init__(self):
-        with open('assets/key.txt', 'rb') as mykey:
+        with open('key.txt', 'rb') as mykey:
             self.key = mykey.read()
 
     def encrypt(self, message):
@@ -17,10 +17,13 @@ class Encrypt:
         return decrypted.decode("utf-8")
     
 if __name__ == "__main__":
+    # key = Fernet.generate_key()
+    # print(key)
+
     de = Encrypt()
     message = "Hello World"
-    x = "gAAAAABnIdH5PBbFYAAJj7lkNnErNncL7-rnRBowy19W4LZ-i1KscpiEwRizEyWWMvJPzpvEAMzJeIHMWBv13a5aRaUEFWovYA=="
-    TOKEN = str(de.encrypt(message))
+    encrypt_code = str(de.encrypt(message))
+    print(encrypt_code)
 
-    print(TOKEN)
-    print(de.decrypt(x))
+    decrypt_code = ""
+    print(de.decrypt(decrypt_code))

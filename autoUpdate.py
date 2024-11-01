@@ -1,6 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
-import json
+from datetime import datetime, timedelta
 from Encrypt import Encrypt
 
 from fetchData import LiveStreamStatus
@@ -14,7 +13,6 @@ def load_env_json(key:str):
 
 def str_to_bool(s:str) -> bool: 
     return s.lower() in ['true', '1', 'yes', 1, True]
-
 
 
 AUTO_UPDATE = str_to_bool(load_env_json('AUTO_UPDATE')) and 0
@@ -39,14 +37,17 @@ async def update_live_table():
                 file.read(), date_format
             ).replace(hour=0, minute=0, second=0)
 
-        if current_time > update_time and AUTO_UPDATE:
+        if current_time > update_time:
             print("Start update LiveTable...")
-            listVtuber = live.db.listVtuberByGroup("Pixela-Project")
-            for _, v in enumerate(listVtuber):
-                live.set_channel_id(v["channel_id"])
-                await live.live_stream_status()
+            if AUTO_UPDATE:
+                listVtuber = live.db.listVtuberByGroup("Pixela-Project")
+                for _, v in enumerate(listVtuber):
+                    live.set_channel_id(v["channel_id"])
+                    await live.live_stream_status()
+            else:
+                print("Not auto update")
             
-        next_update = time_now.replace(hour=9, minute=0, second=0) + timedelta(days=1)
+        next_update = time_now.replace(hour=14, minute=0, second=0) + timedelta(days=1)
         wait_time = (next_update - time_now).total_seconds()
         
         hours = int(wait_time//3600)
