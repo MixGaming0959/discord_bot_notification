@@ -371,6 +371,24 @@ class Paginator(discord.ui.View):
             item.disabled = True  # Disable all buttons
         await self.message.edit(view=self)  # Edit the message to update the view
 
+@client.tree.command(name='insert-new-channel', description="username:(ชื่อช่องเต็ม) ถ้ามี gen_name:(ชื่อรุ่น/บ้านแบบเต็ม) group_name:(ชื่อค่ายแบบเต็ม)")
+async def insertNewChannel(interaction: discord.Interaction, username: str, gen_name: str="Independence", group_name: str="Independence"):
+    await interaction.response.defer()
+    try:
+        result = liveStreamStatus.get_channel_info(username, gen_name, group_name)
+        embed = discord.Embed(title="New Channel", color=random_color())
+        embed.add_field(name="ชื่อช่อง", value=result['name'], inline=False)
+        embed.add_field(name="ชื่อรุ่น/บ้าน", value=result['gen_name'], inline=False)
+        embed.add_field(name="ชื่อค่าย", value=result['group_name'], inline=False)
+        embed.set_thumbnail(url=result['image'])
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        print(traceback.format_exc())
+        await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
+        return
+
+
+
 @client.tree.command(name='test', description="สำหรับ Test เท่านั้น")
 async def test(interaction: discord.Interaction, group_name: str):
     await interaction.response.defer()

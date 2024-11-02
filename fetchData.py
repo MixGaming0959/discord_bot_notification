@@ -2,19 +2,21 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from database import DatabaseManager
 from googleapiclient.discovery import build  # type: ignore
-from googleapiclient.errors import HttpError # type: ignore
+from googleapiclient.errors import HttpError  # type: ignore
 
 
 # ใส่ API Key ที่สร้างไว้
-from dotenv import load_dotenv # type: ignore
+from dotenv import load_dotenv  # type: ignore
+
 load_dotenv()
 from os import environ
 from Encrypt import Encrypt
 
 api_key = Encrypt().decrypt(environ.get("API_KEY"))
 
-class LiveStreamStatus():
-    def __init__(self, db_path:str, autoUpdate: bool = False):
+
+class LiveStreamStatus:
+    def __init__(self, db_path: str, autoUpdate: bool = False):
         self.db = DatabaseManager(db_path)
         self.autoUpdate = autoUpdate
 
@@ -68,8 +70,10 @@ class LiveStreamStatus():
             for data in result:
                 self.db.checkLiveTable(data)
         except HttpError as e:
-            error_reason = e.error_details[0]['reason'] if e.error_details else "unknown error"
-            
+            error_reason = (
+                e.error_details[0]["reason"] if e.error_details else "unknown error"
+            )
+
             # ตรวจสอบว่าเกิด quotaExceeded หรือไม่
             if error_reason == "quotaExceeded":
                 return None, "Quota exceeded!!!"
@@ -102,18 +106,22 @@ class LiveStreamStatus():
             return None
 
         if "items" in response and response["items"]:
-            video_status = response['items'][0]['status']
-            privacy_status = video_status.get('privacyStatus', 'unknown')
+            video_status = response["items"][0]["status"]
+            privacy_status = video_status.get("privacyStatus", "unknown")
 
             # ตรวจสอบว่าสถานะเป็นส่วนตัวหรือไม่
-            if privacy_status == 'private':
-                self.db.cancelLiveTable(f"https://www.youtube.com/watch?v={video_id}", "private")
-            elif privacy_status == 'public':
+            if privacy_status == "private":
+                self.db.cancelLiveTable(
+                    f"https://www.youtube.com/watch?v={video_id}", "private"
+                )
+            elif privacy_status == "public":
                 pass
-            elif privacy_status == 'unlisted':
+            elif privacy_status == "unlisted":
                 pass
             else:
-                self.db.cancelLiveTable(f"https://www.youtube.com/watch?v={video_id}", "unknown")
+                self.db.cancelLiveTable(
+                    f"https://www.youtube.com/watch?v={video_id}", "unknown"
+                )
 
             video_details = response["items"][0]
             snippet = video_details["snippet"]
@@ -190,16 +198,18 @@ class LiveStreamStatus():
             data["start_at"] = new_time
             return data
         else:
-            self.db.cancelLiveTable(f"https://www.youtube.com/watch?v={video_id}", "cancelled")
-            print(vtuber["name"],f"https://www.youtube.com/watch?v={video_id}")
+            self.db.cancelLiveTable(
+                f"https://www.youtube.com/watch?v={video_id}", "cancelled"
+            )
+            print(vtuber["name"], f"https://www.youtube.com/watch?v={video_id}")
             return None
 
-    def set_channel_id(self, channel_id:str):
+    def set_channel_id(self, channel_id: str):
         self.channel_id = channel_id
 
     async def get_live_stream(self, channel_tag: str):
         video = self.db.getLiveTable(channel_tag)
-        
+
         result = []
         # ตรวจสอบว่าเริ่มถ่ายทอดสดหรือยัง
         if video == None:
@@ -211,7 +221,10 @@ class LiveStreamStatus():
                 dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z"
             )
 
-            if self.autoUpdate and (data["live_status"] == "upcoming" and data["start_at"] < self.db.datetime_gmt(datetime.now())):
+            if self.autoUpdate and (
+                data["live_status"] == "upcoming"
+                and data["start_at"] < self.db.datetime_gmt(datetime.now())
+            ):
                 self.channel_id = data["channel_id"]
                 video_details = await self.get_live_stream_info(data["url"])
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
@@ -231,20 +244,20 @@ class LiveStreamStatus():
 
     async def check_live_status(self, channel_tag: str):
         video = self.db.getLiveTable(channel_tag)
-        
+
         # ตรวจสอบว่าเริ่มถ่ายทอดสดหรือยัง
         if video == None:
             return f"ไม่มีการอัพเดทข้อมูลตาราง {channel_tag}..."
         for data in video:
             dt = datetime.fromisoformat(data["start_at"])
-            data["start_at"] = datetime.strptime(
-                dt.strftime("%Y-%m-%d"), "%Y-%m-%d"
-            )
+            data["start_at"] = datetime.strptime(dt.strftime("%Y-%m-%d"), "%Y-%m-%d")
             timeNow = datetime.strptime(
                 self.db.datetime_gmt(datetime.now()).strftime("%Y-%m-%d"), "%Y-%m-%d"
             )
 
-            if self.autoUpdate and (data["live_status"] == "upcoming" and data["start_at"] >= timeNow):
+            if self.autoUpdate and (
+                data["live_status"] == "upcoming" and data["start_at"] >= timeNow
+            ):
                 self.channel_id = data["channel_id"]
                 video_details = await self.get_live_stream_info(data["url"])
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
@@ -256,37 +269,85 @@ class LiveStreamStatus():
                     self.db.updateLiveTable(video_details)
         return f"อัพเดทข้อมูลตาราง {channel_tag} สําเร็จ..."
 
+    def get_channel_info(self, username, gen_name, group_name):
+        channel = self.db.getVtuber(username)
+        if channel != None:
+            raise ValueError(f"ชื่อ {username} มีอยู่แล้วในฐานข้อมูล...")
+        
+        youtube = build("youtube", "v3", developerKey=api_key)
+
+        request = youtube.search().list(
+            part="snippet",
+            q=username,
+            type="channel",
+            maxResults=5,  # จำนวนผลลัพธ์ที่ต้องการ
+        )
+
+        response = request.execute()
+
+        # แสดงผลชื่อและข้อมูลช่องที่ค้นหาได้
+        for item in response["items"]:
+            name = item["snippet"]["channelTitle"]
+            if self.db.simpleCheckSimilarity(name, username):
+                if group_name == "" or gen_name == "":
+                    group_name = "Independence"
+                    gen_name = "Independence"
+
+                thumbnails = item["snippet"]["thumbnails"]
+                image = thumbnails["default"]["url"]
+                if "maxres" in thumbnails:
+                    image = thumbnails["maxres"]["url"]
+                elif "high" in thumbnails:
+                    image = thumbnails["high"]["url"]
+                elif "medium" in thumbnails:
+                    image = thumbnails["medium"]["url"]
+
+                data = {
+                    "name": name,
+                    "gen_name": gen_name,
+                    "group_name": group_name,
+                    "youtube_tag": item["snippet"]["title"],
+                    "image": image,
+                    "channel_id": item["snippet"]["channelId"],
+                }
+                self.db.insertVtuber(data)
+                return data
+            else:
+                continue
+
+        raise ValueError(f"ไม่พบช่องที่เกี่ยวข้องกับ {username}")
+
+
 # if __name__ == "__main__":
-    # ใส่ Channel ID ที่ต้องการตรวจสอบ
-    # from Encrypt import Encrypt
-    # from dotenv import load_dotenv # type: ignore
-    # from os import environ
+# ใส่ Channel ID ที่ต้องการตรวจสอบ
+# from Encrypt import Encrypt
+# from dotenv import load_dotenv # type: ignore
+# from os import environ
 
-    # load_dotenv()
+# load_dotenv()
 
-    # de = Encrypt()
-    # db_path = de.decrypt(environ.get('DB_PATH'))
-    # db = DatabaseManager(db_path)
-    # AUTO_UPDATE = False
-    # liveStreamStatus = LiveStreamStatus(db_path, AUTO_UPDATE)
+# de = Encrypt()
+# db_path = de.decrypt(environ.get('DB_PATH'))
+# db = DatabaseManager(db_path)
+# AUTO_UPDATE = False
+# liveStreamStatus = LiveStreamStatus(db_path, AUTO_UPDATE)
 
-    # listVtuber = liveStreamStatus.db.listVtuberByGroup("Pixela")
-    # for _, v in enumerate(listVtuber):
-    #     liveStreamStatus.set_channel_id(v["channel_id"])
-    #     asyncio.run(liveStreamStatus.live_stream_status())
+# listVtuber = liveStreamStatus.db.listVtuberByGroup("Pixela")
+# for _, v in enumerate(listVtuber):
+#     liveStreamStatus.set_channel_id(v["channel_id"])
+#     asyncio.run(liveStreamStatus.live_stream_status())
 
-    # youtube = build("youtube", "v3", developerKey=api_key)
-    # request = youtube.search().list(
-    #     part="snippet",
-    #     channelId="UC2eai5waelgobAHgp20DEYg",
-    #     eventType="upcoming",
-    #     maxResults=10,
-    #     order="date",
-    #     publishedBefore="2024-10-31T00:00:00Z",
-    #     type="video"
-    # )
-    # response = request.execute()
+# youtube = build("youtube", "v3", developerKey=api_key)
+# request = youtube.search().list(
+#     part="snippet",
+#     channelId="UC2eai5waelgobAHgp20DEYg",
+#     eventType="upcoming",
+#     maxResults=10,
+#     order="date",
+#     publishedBefore="2024-10-31T00:00:00Z",
+#     type="video"
+# )
+# response = request.execute()
 
-    # for item in response["items"]:
-    #     print(item, "\n")
-
+# for item in response["items"]:
+#     print(item, "\n")

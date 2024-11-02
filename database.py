@@ -41,7 +41,7 @@ class DatabaseManager:
         query = f"""
             select id, name, youtubetag as channel_tag, image, channelid as channel_id
             from Vtuber
-            where (channelid like '%{channel_id}%' or youtubetag like '%{channel_id}%') and isenable = 1
+            where (channelid like '%{channel_id}%' or youtubetag like '%{channel_id}%' or name like '%{channel_id}%') and isenable = 1
             LIMIT 1;
         """
         result = self.execute_query(query)
@@ -183,15 +183,16 @@ class DatabaseManager:
         return [dict(zip(['ID','guild_id', 'channel_id', 'default_vtuber', 'default_gen', 'default_group'], row)) for row in result]
     
     def updateImageVtuber(self, data: dict):
-        vtuber = self.getVtuber(data["youtubeTag"])
+        vtuber = self.getVtuber(data["youtube_tag"])
         if vtuber == None:
             self.InsertVtuber(
                 {
                     "name": data["name"],
-                    "youtubeTag": data["youtubeTag"],
-                    "genName": "",
-                    "groupName": "",
+                    "youtube_tag": data["youtube_tag"],
+                    "gen_name": data['gen_name'],
+                    "group_name": data["group_name"],
                     "image": data["image"],
+                    "channel_id": data["channel_id"],
                 }
             )
             return
@@ -202,67 +203,85 @@ class DatabaseManager:
             WHERE YoutubeTag = ?
         """
         self.execute_many(
-            query,[(data["image"], data["youtubeTag"])],
+            query,[(data["image"], data["youtube_tag"])],
         )
 
     def insertVtuber(self, data: dict):
-        groupID = self.getGroup(data["group_name"])["ID"]
-        genID = self.getGen(data["gen_name"], groupID)["ID"]
+        group = self.getGroup(data["group_name"])
+        gen = self.getGen(data["gen_name"], group["name"])
         query = f"""
-            INSERT INTO VTUBER (Name, YoutubeTag, GenID, GroupID, Image)
-            VALUES (?, ?, ?, ?, ?)
+            insert into vtuber (Name, GenID, GroupID, YoutubeTag, Image, ChannelID, IsEnable)
+            values (?, ?, ?, ?, ?, ?, ?)
         """
         self.execute_many(
-            query,[(data["name"], data["youtubeTag"], genID, groupID, data["image"])],
+            query,[(data["name"], gen["id"], group["id"], data["youtube_tag"], data["image"], data["channel_id"], 1)],
         )
     
-    def getGen(self, genName: str, groupName: str):
+    def getGen(self, genName: str, groupName: str, image: str = ""):
+        
         query = f"""
-            SELECT ID, Name, GroupID
-            FROM "GEN" g1
-            INNER JOIN "GROUP" g2 ON g1.GroupID = g2.ID
-            WHERE Name like '%{genName}%' AND g2.Name = {groupName}
+            select g1.id, g1.name, g1.groupid
+            from "gen" g1
+            inner join "group" g2 on g1.groupid = g2.id
+            WHERE g1.Name like '%{genName}%' AND g2.Name like '%{groupName}%'
         """
         result = self.execute_query(query)
         if result:
-            return dict(zip(['ID', 'Name', 'GroupID'], result[0]))
+            return dict(zip(['id', 'name', 'groupid'], result[0]))
         else:
-            return None
+            # return None
             # insert new gen
-            # self.insertGen({"name": genName, "group_name": groupName, "image": ""})
-            # return self.getGen(genName, groupName)
+            self.insertGen({"name": genName, "group_name": groupName, "image": image})
+            return self.getGen(genName, groupName)
     
     def insertGen(self, data: dict):
-        groupID = self.getGroup(data["group_name"])["ID"]
+        group = self.getGroup(data["group_name"])
         query = f"""
-            INSERT INTO "GEN" (Name, GroupID, Image)
-            VALUES (?, ?, ?);
+            insert into "gen" (name, groupid, image)
+            values (?, ?, ?);
         """
         self.execute_many(
-            query,[(data["name"], groupID, data["image"])],
+            query,[(data["name"], group["id"], data["image"])],
         )
         
     def getGroup(self, groupName: str):
         query = f"""
-            SELECT ID, Name
-            FROM "GROUP"
-            WHERE Name like '%{groupName}%'
+            select id, name
+            from "group"
+            where name like '%{groupName}%';
         """
+        # print(query)
         result = self.execute_query(query)
         if result:
-            return dict(zip(['ID', 'Name'], result[0]))
+            return dict(zip(['id', 'name'], result[0]))
         else:
-            return None
+            # return None
             # insert new group
-            # query = f"""
-            #     INSERT INTO "GROUP" (Name)
-            #     VALUES (?)
-            # """
-            # self.execute_many(
-            #     query,[(groupName)],
-            # )
-            # return self.getGroup(groupName)
+            self.insertGroup(groupName)
+            return self.getGroup(groupName)
     
+    def insertGroup(self, name: str):
+        query = f"""
+            insert into "group" (name)
+            values (?)
+        """
+        self.execute_many(
+            query,[(name)],
+        )
+    
+    def simpleCheckSimilarity(self, target: str, source: str) -> bool:
+        query = f"""
+            select * from (
+            select '{source}' as name
+            ) as c2
+            where c2.name like '%{target}%'
+        """
+
+        result = self.execute_query(query)
+        if result:
+            return True
+        else:
+            return False
 
 if __name__ == '__main__':
     from dotenv import load_dotenv # type: ignore
