@@ -3,14 +3,15 @@ from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv # type: ignore
 load_dotenv()
-from os import environ
+from os import environ, path
 
 def load_env_json(key:str):
     return environ.get(key)
 
 class DatabaseManager:
     def __init__(self, db_name:str):
-        self.db_name = db_name
+        # db_path = path.join(path.dirname(__file__), db_name)
+        self.db_name = path.join(path.dirname(__file__), db_name)
 
     def datetime_gmt(self, datetime:datetime) -> datetime:
         gmt = int(load_env_json('GMT'))

@@ -2,14 +2,16 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from database import DatabaseManager
 from googleapiclient.discovery import build  # type: ignore
+from googleapiclient.errors import HttpError # type: ignore
 
 
 # ใส่ API Key ที่สร้างไว้
 from dotenv import load_dotenv # type: ignore
 load_dotenv()
 from os import environ
+from Encrypt import Encrypt
 
-api_key = environ.get("API_KEY")
+api_key = Encrypt().decrypt(environ.get("API_KEY"))
 
 class LiveStreamStatus():
     def __init__(self, db_path:str, autoUpdate: bool = False):
@@ -27,7 +29,7 @@ class LiveStreamStatus():
                 channelId=self.channel_id,
                 type="video",
                 eventType="live",
-                maxResults=2,
+                maxResults=1,
             )
 
             request_upcoming = youtube.search().list(
@@ -35,7 +37,7 @@ class LiveStreamStatus():
                 channelId=self.channel_id,
                 type="video",
                 eventType="upcoming",
-                maxResults=7,
+                maxResults=5,
             )
 
             response_live = request_live.execute()
@@ -58,17 +60,26 @@ class LiveStreamStatus():
                         continue
 
                     result.append(video_details)
-            else:
-                print("No live or upcoming broadcasts found.")
+            # else:
+            #     print("No live or upcoming broadcasts found.")
             if len(result) == 0:
-                return None
+                return None, None
             # เพิ่มข้อมูลลงในฐานข้อมูล
             for data in result:
                 self.db.checkLiveTable(data)
-
+        except HttpError as e:
+            error_reason = e.error_details[0]['reason'] if e.error_details else "unknown error"
+            
+            # ตรวจสอบว่าเกิด quotaExceeded หรือไม่
+            if error_reason == "quotaExceeded":
+                return None, "Quota exceeded!!!"
+            else:
+                return None, f"Error: {error_reason}"
         except Exception as e:
-            print(e)
-        return result
+            if "quotaExceeded" in str(e):
+                return None, "Quota exceeded!!!"
+            return None, str(e)
+        return result, None
 
     async def get_live_stream_info(self, video_id):
         vtuber = self.db.getVtuber(self.channel_id)
@@ -245,22 +256,37 @@ class LiveStreamStatus():
                     self.db.updateLiveTable(video_details)
         return f"อัพเดทข้อมูลตาราง {channel_tag} สําเร็จ..."
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # ใส่ Channel ID ที่ต้องการตรวจสอบ
-    from Encrypt import Encrypt
-    from dotenv import load_dotenv # type: ignore
-    from os import environ
+    # from Encrypt import Encrypt
+    # from dotenv import load_dotenv # type: ignore
+    # from os import environ
 
-    load_dotenv()
+    # load_dotenv()
 
-    de = Encrypt()
-    db_path = de.decrypt(environ.get('DB_PATH'))
-    db = DatabaseManager(db_path)
-    AUTO_UPDATE = False
-    liveStreamStatus = LiveStreamStatus(db_path, AUTO_UPDATE)
+    # de = Encrypt()
+    # db_path = de.decrypt(environ.get('DB_PATH'))
+    # db = DatabaseManager(db_path)
+    # AUTO_UPDATE = False
+    # liveStreamStatus = LiveStreamStatus(db_path, AUTO_UPDATE)
 
-    listVtuber = liveStreamStatus.db.listVtuberByGroup("Pixela")
-    for _, v in enumerate(listVtuber):
-        liveStreamStatus.set_channel_id(v["channel_id"])
-        asyncio.run(liveStreamStatus.live_stream_status())
+    # listVtuber = liveStreamStatus.db.listVtuberByGroup("Pixela")
+    # for _, v in enumerate(listVtuber):
+    #     liveStreamStatus.set_channel_id(v["channel_id"])
+    #     asyncio.run(liveStreamStatus.live_stream_status())
+
+    # youtube = build("youtube", "v3", developerKey=api_key)
+    # request = youtube.search().list(
+    #     part="snippet",
+    #     channelId="UC2eai5waelgobAHgp20DEYg",
+    #     eventType="upcoming",
+    #     maxResults=10,
+    #     order="date",
+    #     publishedBefore="2024-10-31T00:00:00Z",
+    #     type="video"
+    # )
+    # response = request.execute()
+
+    # for item in response["items"]:
+    #     print(item, "\n")
 

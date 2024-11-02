@@ -26,10 +26,10 @@ def str_to_bool(s:str) -> bool:
     return s.lower() in ['true', '1', 'yes', 1, True]
 
 de = Encrypt()
-db_path = de.decrypt(load_env_json('DB_PATH'))
+db_path = (load_env_json('DB_PATH'))
 db = DatabaseManager(db_path)
 AUTO_UPDATE = str_to_bool(load_env_json('AUTO_UPDATE'))
-ISUPDATE_PATH = de.decrypt(load_env_json('ISUPDATE_PATH'))
+ISUPDATE_PATH = (load_env_json('ISUPDATE_PATH'))
 
 liveStreamStatus = fetchData.LiveStreamStatus(db_path, AUTO_UPDATE)
 
@@ -237,8 +237,8 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str):
 @discord.app_commands.choices(
     options = [
         discord.app_commands.Choice(name = "Vtuber", value = 0),
-        # discord.app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
-        # discord.app_commands.Choice(name = "ค่าย", value = 2),
+        discord.app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
+        discord.app_commands.Choice(name = "ค่าย", value = 2),
     ]
 )
 async def updateLive(interaction: discord.Interaction, options: discord.app_commands.Choice[int], name: str):
@@ -253,6 +253,7 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
             listVtuber = db.listVtuberByGen(name)
         elif options.value == 2:
             listVtuber = db.listVtuberByGroup(name)
+        if len(listVtuber) > 1:
             date_format = "%Y-%m-%d %H:%M:%S%z"
             
             time_now = liveStreamStatus.db.datetime_gmt(datetime.now())
@@ -264,13 +265,13 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
             with open(ISUPDATE_PATH, "r") as file: 
                 update_time = datetime.strptime(
                     file.read(), date_format
-                ).replace(hour=0, minute=0, second=0)
-
+                )
+            print(not(current_time > update_time) , AUTO_UPDATE)
             if not(current_time > update_time) and AUTO_UPDATE:
                 await interaction.followup.send(f"จะอัพเดทได้ในเวลา {update_time.strftime('%d %B %Y %H:%M')} น.")
                 return
             else:
-                next_update = time_now.replace(hour=9, minute=0, second=0) + timedelta(days=1)
+                next_update = time_now.replace(hour=14, minute=0, second=0) + timedelta(days=1)
                 with open(ISUPDATE_PATH, "w") as file:
                     file.write(next_update.strftime(date_format))
 
@@ -281,7 +282,7 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
 
         for _, v in enumerate(listVtuber):
             liveStreamStatus.set_channel_id(v['channel_id'])
-            await liveStreamStatus.live_stream_status()
+            _, err = await liveStreamStatus.live_stream_status()
 
         await interaction.followup.send(f"อัพเดทข้อมูลตาราง {name} สําเร็จ...")
     except Exception as e:

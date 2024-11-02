@@ -20,8 +20,8 @@ AUTO_UPDATE = str_to_bool(load_env_json('AUTO_UPDATE')) and 0
 # ฟังก์ชันสำหรับอัปเดตข้อมูลการสตรีม
 async def update_live_table():
     de = Encrypt()
-    DB_PATH = de.decrypt(load_env_json('DB_PATH'))
-    ISUPDATE_PATH = de.decrypt(load_env_json('ISUPDATE_PATH'))
+    DB_PATH = (load_env_json('DB_PATH'))
+    ISUPDATE_PATH = (load_env_json('ISUPDATE_PATH'))
     live = LiveStreamStatus(DB_PATH, AUTO_UPDATE)
 
     date_format = "%Y-%m-%d %H:%M:%S%z"
@@ -43,7 +43,10 @@ async def update_live_table():
                 listVtuber = live.db.listVtuberByGroup("Pixela-Project")
                 for _, v in enumerate(listVtuber):
                     live.set_channel_id(v["channel_id"])
-                    await live.live_stream_status()
+                    _, err = await live.live_stream_status()
+                    if err != None:
+                        print(err)
+                        break
             else:
                 print("Not auto update")
             

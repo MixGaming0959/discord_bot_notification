@@ -17,13 +17,13 @@ class Encrypt:
         return decrypted.decode("utf-8")
     
 if __name__ == "__main__":
-    # key = Fernet.generate_key()
-    # print(key)
+    key = Fernet.generate_key()
+    print(f"New Key: {key}")
 
-    de = Encrypt()
-    message = "Hello World"
-    encrypt_code = str(de.encrypt(message))
-    print(encrypt_code)
+    # de = Encrypt()
+    # message = "Hello World"
+    # encrypt_code = str(de.encrypt(message))
+    # print(encrypt_code)
 
-    decrypt_code = ""
-    print(de.decrypt(decrypt_code))
+    # decrypt_code = ""
+    # print(de.decrypt(decrypt_code))
