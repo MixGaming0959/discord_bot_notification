@@ -16,9 +16,9 @@ api_key = Encrypt().decrypt(environ.get("API_KEY"))
 
 
 class LiveStreamStatus:
-    def __init__(self, db_path: str, autoUpdate: bool = False):
+    def __init__(self, db_path: str, autoCheck: bool = False):
         self.db = DatabaseManager(db_path)
-        self.autoUpdate = autoUpdate
+        self.autoCheck = autoCheck
 
     async def live_stream_status(self):
         result = []
@@ -221,7 +221,7 @@ class LiveStreamStatus:
                 dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z"
             )
 
-            if self.autoUpdate and (
+            if self.autoCheck and (
                 data["live_status"] == "upcoming"
                 and data["start_at"] < self.db.datetime_gmt(datetime.now())
             ):
@@ -255,7 +255,7 @@ class LiveStreamStatus:
                 self.db.datetime_gmt(datetime.now()).strftime("%Y-%m-%d"), "%Y-%m-%d"
             )
 
-            if self.autoUpdate and (
+            if self.autoCheck and (
                 data["live_status"] == "upcoming" and data["start_at"] >= timeNow
             ):
                 self.channel_id = data["channel_id"]
@@ -354,8 +354,8 @@ if __name__ == "__main__":
 # de = Encrypt()
 # db_path = de.decrypt(environ.get('DB_PATH'))
 # db = DatabaseManager(db_path)
-# AUTO_UPDATE = False
-# liveStreamStatus = LiveStreamStatus(db_path, AUTO_UPDATE)
+# AUTO_CHECK = False
+# liveStreamStatus = LiveStreamStatus(db_path, AUTO_CHECK)
 
 # listVtuber = liveStreamStatus.db.listVtuberByGroup("Pixela")
 # for _, v in enumerate(listVtuber):

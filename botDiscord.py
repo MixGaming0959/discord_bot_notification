@@ -23,15 +23,15 @@ def random_color():
     # Generate a random color as an integer value
     return discord.Color(randint(0, 0xFFFFFF))
 def str_to_bool(s:str) -> bool: 
-    return s.lower() in ['true', '1', 'yes', 1, True]
+    return s in ['true', '1', 'yes', 1, True]
 
 de = Encrypt()
 db_path = (load_env_json('DB_PATH'))
 db = DatabaseManager(db_path)
-AUTO_UPDATE = str_to_bool(load_env_json('AUTO_UPDATE'))
+AUTO_CHECK = str_to_bool(load_env_json('AUTO_CHECK'))
 ISUPDATE_PATH = (load_env_json('ISUPDATE_PATH'))
 
-liveStreamStatus = fetchData.LiveStreamStatus(db_path, AUTO_UPDATE)
+liveStreamStatus = fetchData.LiveStreamStatus(db_path, AUTO_CHECK)
 
 def timeNowFunc():
     return liveStreamStatus.db.datetime_gmt(datetime.now())
@@ -274,7 +274,7 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
                     file.read(), date_format
                 )
 
-            if not(current_time > update_time) and AUTO_UPDATE:
+            if not(current_time > update_time):
                 await interaction.followup.send(f"วันนี้ได้อัพเดทตารางของ {name} ไปเป็นที่เรียบร้อยแล้ว...")
                 return
             else:
