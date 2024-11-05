@@ -5,8 +5,14 @@ from dotenv import load_dotenv # type: ignore
 load_dotenv()
 from os import environ, path
 
+from uuid import uuid4
+
 def load_env_json(key:str):
     return environ.get(key)
+def gen_uuid():
+        uuid_str = str(uuid4())
+        varchar_uuid = uuid_str[:36]
+        return varchar_uuid
 
 class DatabaseManager:
     def __init__(self, db_name:str):
@@ -24,18 +30,27 @@ class DatabaseManager:
 
     def execute_query(self, query, params=None):
         with self.connect() as conn:
-            cursor = conn.cursor()
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            return cursor.fetchall()
+            try:
+                cursor = conn.cursor()
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+                return cursor.fetchall()
+            except Exception as e:
+                conn.rollback()
+                raise e
+
 
     def execute_many(self, query, data):
         with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.executemany(query, data)
-            conn.commit()
+            try:
+                cursor = conn.cursor()
+                cursor.executemany(query, data)
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                raise e
 
     def getVtuber(self, channel_id: str):
         query = f"""
@@ -54,7 +69,7 @@ class DatabaseManager:
         query = f"""
             select v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id
             from Vtuber v
-            inner join "group" g on v.groupid = g.id
+            inner join groups g on v.groupsid = g.id
             where g.name like '%{group_name}%' and v.isenable = 1
         """
         result = self.execute_query(query)
@@ -67,7 +82,7 @@ class DatabaseManager:
         query = f"""
             select v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id
             from Vtuber v
-            inner join "gen" gen on v.genid = gen.id
+            inner join generation gen on v.genid = gen.id
             where gen.name like '%{gen_name}%' and v.isenable = 1
         """
         result = self.execute_query(query)
@@ -81,10 +96,11 @@ class DatabaseManager:
             INSERT INTO LIVETABLE (Title, URL, StartAt, Colaborator, VtuberID, Image, LiveStatus)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """
+        params = [(data["title"], data["url"], data["start_at"], data["colaborator"], data["vtuber_id"], data["image"], data["live_status"])]
         self.execute_many(
-            query,
-            [(data["title"], data["url"], data["start_at"], data["colaborator"], int(data['vtuber_id']), data["image"], data["live_status"])],
+            query, params,
         )
+        # print(query, params)
     
     def checkLiveTable(self, data: dict):
         query = """
@@ -157,7 +173,7 @@ class DatabaseManager:
         self.execute_many(query, [(livestatus, url)])
         
     def listGroup(self):
-        query = 'select name from \"group\"'
+        query = 'select name from \"groups\"'
         result = self.execute_query(query)
         if result:
             return [dict(zip(['name'], row)) for row in result]
@@ -166,9 +182,9 @@ class DatabaseManager:
     
     def listGenByGroup(self, group_name: str):
         query = f"""
-            select gen.id, gen.name, gen.groupid as group_id, gen.image
-            from "group" g
-            inner join "gen" gen on gen.groupid = g.id
+            select gen.id, gen.name, gen.groupsid as group_id, gen.image
+            from groups g
+            inner join generation gen on gen.groupsid = g.id
             where g.name like '%{group_name}%'
         """
         result = self.execute_query(query)
@@ -216,7 +232,7 @@ class DatabaseManager:
             self.insertGen({"name": data["gen_name"], "group_name": group["name"], "image": data["image"]})
             gen = self.getGen(data["gen_name"], group["name"])
         query = f"""
-            insert into vtuber (Name, GenID, GroupID, YoutubeTag, Image, ChannelID, IsEnable)
+            insert into vtuber (ID, Name, GenID, GroupsID, YoutubeTag, Image, ChannelID, IsEnable)
             values (?, ?, ?, ?, ?, ?, ?)
         """
         self.execute_many(
@@ -226,31 +242,32 @@ class DatabaseManager:
     def getGen(self, genName: str, groupName: str, image: str = ""):
         
         query = f"""
-            select g1.id, g1.name, g1.groupid
-            from "gen" g1
-            inner join "group" g2 on g1.groupid = g2.id
+            select g1.id, g1.name, g1.groupsid as groups_id
+            from generation g1
+            inner join groups g2 on g1.groupsid = g2.id
             WHERE g1.Name like '%{genName}%' AND g2.Name like '%{groupName}%'
         """
         result = self.execute_query(query)
         if result:
-            return dict(zip(['id', 'name', 'groupid'], result[0]))
+            return dict(zip(['id', 'name', 'groups_id'], result[0]))
         else:
             return None
     
     def insertGen(self, data: dict):
         group = self.getGroup(data["group_name"])
+        id = gen_uuid().hex
         query = f"""
-            insert into "gen" (name, groupid, image)
-            values (?, ?, ?);
+            insert into generation (id,name, groupsid, image)
+            values (?, ?, ?, ?);
         """
         self.execute_many(
-            query,[(data["name"], group["id"], data["image"])],
+            query,[( gen_uuid(),data["name"], group["id"], data["image"])],
         )
         
     def getGroup(self, groupName: str):
         query = f"""
             select id, name
-            from "group"
+            from groups
             where name like '%{groupName}%';
         """
         # print(query)
@@ -263,12 +280,11 @@ class DatabaseManager:
     
     def insertGroup(self, name: str):
         query = f"""
-            insert into "group" (name)
-            values (?)
+            insert into groups (id,name)
+            values ({gen_uuid()},'{name});
         """
-        self.execute_many(
-            query,[(name)],
-        )
+        print(query)
+        self.execute_query(query)
     
     def simpleCheckSimilarity(self, target: str, source: str) -> bool:
         query = f"""
@@ -291,4 +307,11 @@ if __name__ == '__main__':
     
     db = DatabaseManager(environ.get('DB_PATH'))
     
-    print(db.getVtuber('KeressaZoulfia'))
+    data = [{'title': '【ROV】เก็บเม็ด Stuart แบบ สโลว์ไลฟ์ จะติดเม็ดซักซีไหน 55', 'url': 'https://www.youtube.com/watch?v=ZV2ej20LNPU', 'start_at': '2024-11-05 14:02:37', 'colaborator': None, 'vtuber_id': '3dabc586-c346-46a2-af55-172db123663c', 'image': 'https://i.ytimg.com/vi/ZV2ej20LNPU/maxresdefault_live.jpg', 'live_status': 'live', 'channel_name': 'Sisira Hydrangea Ch. Pixela S', 'channel_tag': 'SisiraHydrangea', 'channel_id': 'UCjrs5Sse402rafaOP-k37Xw'},
+{'title': '[ Free Chat Room ] ตารางไลฟ์ 03/11  - 09/11 (GMT + 7 )', 'url': 'https://www.youtube.com/watch?v=GGOqTwbBHo0', 'start_at': '2025-02-28 17:45:00', 'colaborator': None, 'vtuber_id': '3dabc586-c346-46a2-af55-172db123663c', 'image': 'https://i.ytimg.com/vi/GGOqTwbBHo0/maxresdefault_live.jpg', 'live_status': 'upcoming', 'channel_name': 'Sisira Hydrangea Ch. Pixela S', 'channel_tag': 'SisiraHydrangea', 'channel_id': 'UCjrs5Sse402rafaOP-k37Xw'},
+{'title': '【ROV】เก็บเม็ด Stuart แบบ สโลว์ไลฟ์ จะติดเม็ดซักซีไหน 55', 'url': 'https://www.youtube.com/watch?v=ZV2ej20LNPU', 'start_at': '2024-11-05 14:02:37', 'colaborator': None, 'vtuber_id': '3dabc586-c346-46a2-af55-172db123663c', 'image': 'https://i.ytimg.com/vi/ZV2ej20LNPU/maxresdefault_live.jpg', 'live_status': 'live', 'channel_name': 'Sisira Hydrangea Ch. Pixela S', 'channel_tag': 'SisiraHydrangea', 'channel_id': 'UCjrs5Sse402rafaOP-k37Xw'},
+{'title': "【Liar's Bar】ฉันได้กลิ่นคนโกหก ft @UminoCiala @PrincessZelina @BlytheBiscuit", 'url': 'https://www.youtube.com/watch?v=MhFKvCT99Ls', 'start_at': '2024-11-05 20:00:00', 'colaborator': 'UminoCiala ,PrincessZelina ,BlytheBiscuit', 'vtuber_id': '3dabc586-c346-46a2-af55-172db123663c', 'image': 'https://i.ytimg.com/vi/MhFKvCT99Ls/maxresdefault_live.jpg', 'live_status': 'upcoming', 'channel_name': 'Sisira Hydrangea Ch. Pixela S', 'channel_tag': 'SisiraHydrangea', 'channel_id': 'UCjrs5Sse402rafaOP-k37Xw'}]
+    
+    for i in data:
+        db.checkLiveTable(i)
+    # print(db.getLiveTable('SisiraHydrangea'))

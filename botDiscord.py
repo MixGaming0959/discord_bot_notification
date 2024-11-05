@@ -267,14 +267,13 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
 
             current_time = datetime.strptime(
                 time_now.strftime(date_format), date_format
-            ).replace(hour=0, minute=0, second=0)
+            )
 
             with open(ISUPDATE_PATH, "r") as file: 
                 update_time = datetime.strptime(
                     file.read(), date_format
                 )
-
-            if not(current_time > update_time):
+            if (current_time <= update_time):
                 await interaction.followup.send(f"วันนี้ได้อัพเดทตารางของ {name} ไปเป็นที่เรียบร้อยแล้ว...")
                 return
             else:
