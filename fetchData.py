@@ -272,7 +272,7 @@ class LiveStreamStatus:
     def get_channel_info(self, username, gen_name, group_name):
         channel = self.db.getVtuber(username)
         if channel != None:
-            raise ValueError(f"ชื่อ {username} มีอยู่แล้วในฐานข้อมูล...")
+            raise ValueError(f"ชื่อ {channel['name']} มีอยู่แล้วในฐานข้อมูล...")
         
         youtube = build("youtube", "v3", developerKey=api_key)
 
@@ -301,12 +301,12 @@ class LiveStreamStatus:
                     image = thumbnails["high"]["url"]
                 elif "medium" in thumbnails:
                     image = thumbnails["medium"]["url"]
-
+                youtube_tag = self.get_channel_tag(item["snippet"]["channelId"])
                 data = {
                     "name": name,
                     "gen_name": gen_name,
                     "group_name": group_name,
-                    "youtube_tag": item["snippet"]["title"],
+                    "youtube_tag": youtube_tag,
                     "image": image,
                     "channel_id": item["snippet"]["channelId"],
                 }
@@ -316,7 +316,32 @@ class LiveStreamStatus:
                 continue
 
         raise ValueError(f"ไม่พบช่องที่เกี่ยวข้องกับ {username}")
+    
+    def get_channel_tag(self, channel_id:str):
+        from requests import get as requests_get # type: ignore
+        from re import search as re_search
+        url_channel = f"https://www.youtube.com/channel/{channel_id}"
+        # ส่ง request ไปที่ URL และดึง HTML เนื้อหากลับมา
+        response = requests_get(url_channel)
+        html_content = response.text
+        # {"metadataRows":[{"metadataParts":[{"text":{"content":"@結城さくな"},"enableTruncation":true}]}
+        format_text = r'"metadataRows":\[\{"metadataParts":\[\{"text":\{"content":"@([\w\d]+)"\}'
+        # ใช้ regex เพื่อค้นหา channel_tag ที่อยู่ใน HTML (โดยทั่วไปจะอยู่ใน meta หรือ script)
+        match = re_search(format_text, html_content)
 
+        if match:
+            channel_tag = match.group(1)
+            return channel_tag
+        else:
+            return None
+
+
+if __name__ == "__main__":
+    live = LiveStreamStatus("assets/video.db", False)
+
+    x = live.get_channel_tag("UCrV1Hf5r8P148idjoSfrGEQ")
+
+    print(x)
 
 # if __name__ == "__main__":
 # ใส่ Channel ID ที่ต้องการตรวจสอบ

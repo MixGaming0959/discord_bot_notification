@@ -208,7 +208,13 @@ class DatabaseManager:
 
     def insertVtuber(self, data: dict):
         group = self.getGroup(data["group_name"])
+        if group == None:
+            self.insertGroup(data["group_name"])
+            group = self.getGroup(data["group_name"])
         gen = self.getGen(data["gen_name"], group["name"])
+        if gen == None:
+            self.insertGen({"name": data["gen_name"], "group_name": group["name"], "image": data["image"]})
+            gen = self.getGen(data["gen_name"], group["name"])
         query = f"""
             insert into vtuber (Name, GenID, GroupID, YoutubeTag, Image, ChannelID, IsEnable)
             values (?, ?, ?, ?, ?, ?, ?)
@@ -229,10 +235,7 @@ class DatabaseManager:
         if result:
             return dict(zip(['id', 'name', 'groupid'], result[0]))
         else:
-            # return None
-            # insert new gen
-            self.insertGen({"name": genName, "group_name": groupName, "image": image})
-            return self.getGen(genName, groupName)
+            return None
     
     def insertGen(self, data: dict):
         group = self.getGroup(data["group_name"])
@@ -255,10 +258,8 @@ class DatabaseManager:
         if result:
             return dict(zip(['id', 'name'], result[0]))
         else:
-            # return None
-            # insert new group
-            self.insertGroup(groupName)
-            return self.getGroup(groupName)
+            return None
+
     
     def insertGroup(self, name: str):
         query = f"""

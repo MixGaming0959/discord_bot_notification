@@ -14,7 +14,7 @@ def load_env_json(key:str):
 def str_to_bool(s:str) -> bool: 
     return s.lower() in ['true', '1', 'yes', 1, True]
 
-
+# Disable auto update
 AUTO_UPDATE = str_to_bool(load_env_json('AUTO_UPDATE')) and 0
 
 # ฟังก์ชันสำหรับอัปเดตข้อมูลการสตรีม

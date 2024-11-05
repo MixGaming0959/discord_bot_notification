@@ -210,10 +210,12 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str):
                     if (start_at != timeNow) :
                         continue
 
-                    txt = f"{stream['title']}\n [Link]({stream['url']})\n"
+                    channel_link = f"https://www.youtube.com/channel/{stream['channel_tag']}/streams"
+                    txt = f"[{stream['title']}]({stream['url']})\n"
                     embedVtuber.add_field(name=v["name"], value=txt, inline=False)
                     embedVtuber.add_field(name='เวลาไลฟ์', value=f"{stream['start_at'].strftime('%H:%M')} น.", inline=True)
                     embedVtuber.add_field(name='สถานะ', value=f"{stream['live_status']}", inline=True)
+                    embedVtuber.add_field(name='ที่ช่อง', value=f"[{stream['channel_tag']}]({channel_link})", inline=True)
                     found = True
             if not found:
                 embedVtuber.add_field(name=f"ไม่พบไลฟ์ของ {gen_name} บน Youtube", value="ไม่พบไลฟ์บน Youtube", inline=False)
@@ -249,9 +251,14 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
         name = name.strip()
         if options.value == 0:
             listVtuber = [db.getVtuber(name)]
+            name = listVtuber[0]['name']
         elif options.value == 1:
+            gen = db.getGen(name)
+            name = gen['name']
             listVtuber = db.listVtuberByGen(name)
         elif options.value == 2:
+            group = db.getGroup(name)
+            name = group['name']
             listVtuber = db.listVtuberByGroup(name)
         if len(listVtuber) > 1:
             date_format = "%Y-%m-%d %H:%M:%S%z"
@@ -266,9 +273,9 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
                 update_time = datetime.strptime(
                     file.read(), date_format
                 )
-            print(not(current_time > update_time) , AUTO_UPDATE)
+
             if not(current_time > update_time) and AUTO_UPDATE:
-                await interaction.followup.send(f"จะอัพเดทได้ในเวลา {update_time.strftime('%d %B %Y %H:%M')} น.")
+                await interaction.followup.send(f"วันนี้ได้อัพเดทตารางของ {name} ไปเป็นที่เรียบร้อยแล้ว...")
                 return
             else:
                 next_update = time_now.replace(hour=14, minute=0, second=0) + timedelta(days=1)
@@ -279,7 +286,6 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
             await interaction.followup.send(f"ไม่พบข้อมูล {name} ในฐานข้อมูล!")
             return
             
-
         for _, v in enumerate(listVtuber):
             liveStreamStatus.set_channel_id(v['channel_id'])
             _, err = await liveStreamStatus.live_stream_status()
@@ -371,13 +377,16 @@ class Paginator(discord.ui.View):
             item.disabled = True  # Disable all buttons
         await self.message.edit(view=self)  # Edit the message to update the view
 
-@client.tree.command(name='insert-new-channel', description="username:(ชื่อช่องเต็ม) ถ้ามี gen_name:(ชื่อรุ่น/บ้านแบบเต็ม) group_name:(ชื่อค่ายแบบเต็ม)")
+@client.tree.command(name='insert-new-channel', description="ต้องเป็นชื่อเต็มเท่านั้น และอย่าใช้บ่อยเกินไป")
 async def insertNewChannel(interaction: discord.Interaction, username: str, gen_name: str="Independence", group_name: str="Independence"):
     await interaction.response.defer()
     try:
         result = liveStreamStatus.get_channel_info(username, gen_name, group_name)
+        if result == None:
+            raise ValueError("ไม่พบช่องที่ต้องการ")
         embed = discord.Embed(title="New Channel", color=random_color())
         embed.add_field(name="ชื่อช่อง", value=result['name'], inline=False)
+        embed.add_field(name="Tag", value=f"@{result['youtube_tag']}", inline=False)
         embed.add_field(name="ชื่อรุ่น/บ้าน", value=result['gen_name'], inline=False)
         embed.add_field(name="ชื่อค่าย", value=result['group_name'], inline=False)
         embed.set_thumbnail(url=result['image'])
@@ -386,8 +395,6 @@ async def insertNewChannel(interaction: discord.Interaction, username: str, gen_
         print(traceback.format_exc())
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
         return
-
-
 
 @client.tree.command(name='test', description="สำหรับ Test เท่านั้น")
 async def test(interaction: discord.Interaction, group_name: str):
