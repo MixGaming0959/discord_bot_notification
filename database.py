@@ -67,27 +67,27 @@ class DatabaseManager:
     
     def listVtuberByGroup(self, group_name: str):
         query = f"""
-            select v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id
+            select v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id, g.name as group_name
             from Vtuber v
             inner join groups g on v.groupsid = g.id
             where g.name like '%{group_name}%' and v.isenable = 1
         """
         result = self.execute_query(query)
         if result:
-            return [dict(zip(['id', 'name', 'channel_tag', 'image', 'channel_id'], row)) for row in result]
+            return [dict(zip(['id', 'name', 'channel_tag', 'image', 'channel_id', 'group_name'], row)) for row in result]
         else:
             return None
     
     def listVtuberByGen(self, gen_name: str):
         query = f"""
-            select v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id
+            select v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id, gen.name as gen_name
             from Vtuber v
             inner join generation gen on v.genid = gen.id
             where gen.name like '%{gen_name}%' and v.isenable = 1
         """
         result = self.execute_query(query)
         if result:
-            return [dict(zip(['id', 'name', 'channel_tag', 'image', 'channel_id'], row)) for row in result]
+            return [dict(zip(['id', 'name', 'channel_tag', 'image', 'channel_id', 'gen_name'], row)) for row in result]
         else:
             return None
         
@@ -169,7 +169,6 @@ class DatabaseManager:
             set livestatus = ?
             where url = ?
         """
-        print([(livestatus, url)])
         self.execute_many(query, [(livestatus, url)])
         
     def listGroup(self):
@@ -283,7 +282,6 @@ class DatabaseManager:
             insert into groups (id,name)
             values ({gen_uuid()},'{name});
         """
-        print(query)
         self.execute_query(query)
     
     def simpleCheckSimilarity(self, target: str, source: str) -> bool:
