@@ -39,8 +39,8 @@ async def update_live_table():
             print("Start update LiveTable...")
             listVtuber = live.db.listVtuberByGroup("PixelaProject")
             for _, v in enumerate(listVtuber):
-                live.set_channel_id(v["channel_id"])
-                _, err = await live.live_stream_status()
+                # live.set_channel_id(v["channel_id"])
+                _, err = await live.live_stream_status(v["channel_id"])
                 if err != None:
                     print(err)
                     break
