@@ -20,7 +20,7 @@ class LiveStreamStatus:
         self.db = DatabaseManager(db_path)
         self.autoCheck = autoCheck
 
-    async def live_stream_status_old(self):
+    async def live_stream_status_old(self, channel_id: str):
         result = []
         try:
             before = self.db.datetime_gmt(datetime.now() + timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -30,7 +30,7 @@ class LiveStreamStatus:
             # ค้นหาวิดีโอล่าสุดของ Channel
             request_live = youtube.search().list(
                 part="snippet",
-                channelId=self.channel_id,
+                channelId=channel_id,
                 type="video",
                 eventType="live",
                 maxResults=1,
@@ -40,7 +40,7 @@ class LiveStreamStatus:
 
             request_upcoming = youtube.search().list(
                 part="snippet",
-                channelId=self.channel_id,
+                channelId=channel_id,
                 type="video",
                 eventType="upcoming",
                 maxResults=5,
@@ -63,8 +63,8 @@ class LiveStreamStatus:
                     if item["snippet"]["liveBroadcastContent"] == "none":
                         continue
                     video_id = item["id"]["videoId"]
-                    video_details = await self.get_live_stream_info(video_id)
-                    if video_details == None:
+                    video_details = await self.get_live_stream_info(video_id, channel_id)
+                    if video_details == None or len(video_details) == 0:
                         continue
 
                     result.append(video_details)
@@ -91,8 +91,8 @@ class LiveStreamStatus:
             return None, str(e)
         return result, None
 
-    async def get_live_stream_info(self, video_ids: str):
-        vtuber = self.db.getVtuber(self.channel_id)
+    async def get_live_stream_info(self, video_ids: str, channel_id: str):
+        vtuber = self.db.getVtuber(channel_id)
         try:
             youtube = build("youtube", "v3", developerKey=api_key)
 
@@ -165,7 +165,7 @@ class LiveStreamStatus:
                         if name == None:
                             colaborator += f"{i.strip()},"
                         else:
-                            colaborator += f"{name[0]['channel_tag']},"
+                            colaborator += f"{name['channel_tag']},"
                     colaborator = colaborator[:-1]
 
                 data = {
@@ -178,7 +178,7 @@ class LiveStreamStatus:
                     "live_status": live_status,
                     "channel_name": channel_name,
                     "channel_tag": vtuber["channel_tag"],
-                    "channel_id": self.channel_id,
+                    "channel_id": channel_id,
                 }
 
                 # ตรวจสอบเวลาเริ่มและสถานะการถ่ายทอดสด
@@ -225,6 +225,9 @@ class LiveStreamStatus:
     async def get_live_stream(self, channel_tag: str):
         video = self.db.getLiveTable(channel_tag)
 
+        # เก็บเวลาไลฟ์ แบบ list
+        time_list = set()
+
         result = []
         # ตรวจสอบว่าเริ่มถ่ายทอดสดหรือยัง
         if video == None:
@@ -236,15 +239,19 @@ class LiveStreamStatus:
                 dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z"
             )
 
+            if data["start_at"] in time_list:
+                continue
+
+            time_list.add(data["start_at"])
+
             if self.autoCheck and (
                 data["live_status"] == "upcoming"
                 and data["start_at"] < self.db.datetime_gmt(datetime.now())
             ):
-                self.channel_id = data["channel_id"]
 
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
-                video_details = await self.get_live_stream_info(video_id)
-                if video_details == None:
+                video_details = await self.get_live_stream_info(video_id, data["channel_id"])
+                if video_details == None or len(video_details) == 0:
                     continue
                 video_details = video_details[0]
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
@@ -264,6 +271,9 @@ class LiveStreamStatus:
     async def check_live_status(self, channel_tag: str):
         video = self.db.getLiveTable(channel_tag)
 
+        # เก็บเวลาไลฟ์ แบบ list
+        time_list = set()
+
         # ตรวจสอบว่าเริ่มถ่ายทอดสดหรือยัง
         if video == None:
             return f"ไม่มีการอัพเดทข้อมูลตาราง {channel_tag}..."
@@ -274,13 +284,16 @@ class LiveStreamStatus:
                 self.db.datetime_gmt(datetime.now()).strftime("%Y-%m-%d"), "%Y-%m-%d"
             )
 
+            if data["start_at"] in time_list:
+                continue
+            time_list.add(data["start_at"])
+
             if self.autoCheck and (
                 data["live_status"] == "upcoming" and data["start_at"] >= timeNow
             ):
-                self.channel_id = data["channel_id"]
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
-                video_details = await self.get_live_stream_info(video_id)
-                if video_details == None:
+                video_details = await self.get_live_stream_info(video_id, data["channel_id"])
+                if video_details == None or len(video_details) == 0:
                     continue
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
                 if video_details != None and (
@@ -365,7 +378,7 @@ class LiveStreamStatus:
             if lis_video_id == None:
                 raise ValueError("Cannot get playlist item")
 
-            video_details = await self.get_live_stream_info(",".join(lis_video_id))
+            video_details = await self.get_live_stream_info(",".join(lis_video_id), channel_id)
             if video_details == None:
                 raise ValueError("Cannot get live stream info")
 
@@ -464,42 +477,8 @@ class LiveStreamStatus:
 
 
 if __name__ == "__main__":
-    live = LiveStreamStatus("assets/video.db", False)
+    lv = LiveStreamStatus("assets/video.db", False)
+    # get_live_stream
+    asyncio.run(lv.get_live_stream("ShuunAruna"))
 
-    x = live.get_channel_tag("UCrV1Hf5r8P148idjoSfrGEQ")
 
-    print(x)
-
-# if __name__ == "__main__":
-# ใส่ Channel ID ที่ต้องการตรวจสอบ
-# from Encrypt import Encrypt
-# from dotenv import load_dotenv # type: ignore
-# from os import environ
-
-# load_dotenv()
-
-# de = Encrypt()
-# db_path = de.decrypt(environ.get('DB_PATH'))
-# db = DatabaseManager(db_path)
-# AUTO_CHECK = False
-# liveStreamStatus = LiveStreamStatus(db_path, AUTO_CHECK)
-
-# listVtuber = liveStreamStatus.db.listVtuberByGroup("Pixela")
-# for _, v in enumerate(listVtuber):
-#     liveStreamStatus.set_channel_id(v["channel_id"])
-#     asyncio.run(liveStreamStatus.live_stream_status())
-
-# youtube = build("youtube", "v3", developerKey=api_key)
-# request = youtube.search().list(
-#     part="snippet",
-#     channelId="UC2eai5waelgobAHgp20DEYg",
-#     eventType="upcoming",
-#     maxResults=10,
-#     order="date",
-#     publishedBefore="2024-10-31T00:00:00Z",
-#     type="video"
-# )
-# response = request.execute()
-
-# for item in response["items"]:
-#     print(item, "\n")

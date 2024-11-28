@@ -242,14 +242,14 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}", ephemeral=True)
         return
 
-    await interaction.followup.send(embeds=listEmbed, ephemeral=True)
+    # await interaction.followup.send(embeds=listEmbed, ephemeral=True)
 
-    # # Create the paginator view
-    # paginator = Paginator(embeds=listEmbed, timeout=60)
+    # Create the paginator view
+    paginator = Paginator(embeds=listEmbed, timeout=60)
 
-    # # Send the first embed
-    # message = await interaction.followup.send(embed=listEmbed[0], view=paginator, ephemeral=True)
-    # paginator.message = message  # Store the message for later access
+    # Send the first embed
+    message = await interaction.followup.send(embed=listEmbed[0], view=paginator, ephemeral=True)
+    paginator.message = message  # Store the message for later access
 
 
 @client.tree.command(name='update-live', description="คำสั่งที่อัพเดทข้อมูลตารางเผื่อว่ามีไลฟ์ที่มีการเปลี่ยนแปลง")

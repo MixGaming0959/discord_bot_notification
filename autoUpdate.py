@@ -28,7 +28,7 @@ async def update_live_table():
 
         current_time = datetime.strptime(
             time_now.strftime(date_format), date_format
-        ).replace(hour=0, minute=0, second=0)
+        )
 
         with open(ISUPDATE_PATH, "r") as file: 
             update_time = datetime.strptime(
@@ -44,10 +44,8 @@ async def update_live_table():
                 if err != None:
                     print(err)
                     break
-            else:
-                print("Not auto update")
             
-        next_update = time_now.replace(hour=14, minute=0, second=0) + timedelta(days=1)
+        next_update = time_now.replace(hour=0, minute=0, second=0) + timedelta(days=1)
         wait_time = (next_update - time_now).total_seconds()
         
         hours = int(wait_time//3600)

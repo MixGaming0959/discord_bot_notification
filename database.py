@@ -155,7 +155,13 @@ class DatabaseManager:
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
             where (colaborator like '%{channelTag}%' or vtuber.youtubetag like '{channelTag}') and livetable.livestatus != 'none'
-            order by start_at asc;
+            order by 
+                CASE 
+                        WHEN vtuber.youtubetag = '{channelTag}' THEN 0 -- ชื่อที่ต้องการให้ขึ้นก่อน
+                        ELSE 1
+                    END, 
+                    vtuber.youtubetag, -- ลำดับต่อไปตามปกติ (เรียงตามตัวอักษร)
+                start_at asc;
         """
         result = self.execute_query(query)
         if result:
