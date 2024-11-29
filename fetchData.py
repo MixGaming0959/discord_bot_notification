@@ -168,11 +168,13 @@ class LiveStreamStatus:
             data["start_at"] = datetime.strptime(
                 dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z"
             )
-            
+            found = False
             for i in time_list:
                 if data["start_at"] - TIME_ERROR <= i <= data["start_at"] + TIME_ERROR:
-                    continue
-
+                    found = True
+                    break
+            if found:
+                continue
             time_list.add(data["start_at"])
 
             if self.autoCheck and (
@@ -215,9 +217,13 @@ class LiveStreamStatus:
                 self.db.datetime_gmt(datetime.now()).strftime("%Y-%m-%d"), "%Y-%m-%d"
             )
 
+            found = False
             for i in time_list:
                 if data["start_at"] - TIME_ERROR <= i <= data["start_at"] + TIME_ERROR:
-                    continue
+                    found = True
+                    break
+            if found:
+                continue
 
             time_list.add(data["start_at"])
 
