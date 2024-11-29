@@ -13,83 +13,12 @@ from os import environ
 from Encrypt import Encrypt
 
 api_key = Encrypt().decrypt(environ.get("API_KEY"))
-
+TIME_ERROR = timedelta(minutes=30)
 
 class LiveStreamStatus:
     def __init__(self, db_path: str, autoCheck: bool = False):
         self.db = DatabaseManager(db_path)
         self.autoCheck = autoCheck
-
-    async def live_stream_status_old(self, channel_id: str):
-        result = []
-        try:
-            before = self.db.datetime_gmt(datetime.now() + timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
-            after = self.db.datetime_gmt(datetime.now() - timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
-            youtube = build("youtube", "v3", developerKey=api_key)
-
-            # ค้นหาวิดีโอล่าสุดของ Channel
-            request_live = youtube.search().list(
-                part="snippet",
-                channelId=channel_id,
-                type="video",
-                eventType="live",
-                maxResults=1,
-                publishedAfter=after,
-                publishedBefore=before,
-            )
-
-            request_upcoming = youtube.search().list(
-                part="snippet",
-                channelId=channel_id,
-                type="video",
-                eventType="upcoming",
-                maxResults=5,
-                publishedAfter=after,
-                publishedBefore=before,
-            )
-
-            response_live = request_live.execute()
-            response_upcoming = request_upcoming.execute()
-
-            response = response_live
-            response["items"] += response_upcoming["items"]
-
-            # with open("data.json", "w") as outfile:
-            #     json.dump(response, outfile)
-
-            # ตรวจสอบสถานะการถ่ายทอดสด
-            if "items" in response and response["items"]:
-                for item in response["items"]:
-                    if item["snippet"]["liveBroadcastContent"] == "none":
-                        continue
-                    video_id = item["id"]["videoId"]
-                    video_details = await self.get_live_stream_info(video_id, channel_id)
-                    if video_details == None or len(video_details) == 0:
-                        continue
-
-                    result.append(video_details)
-            # else:
-            if len(result) == 0:
-                # print("No live or upcoming broadcasts found.")
-                return None, None
-            # เพิ่มข้อมูลลงในฐานข้อมูล
-            for data in result:
-                self.db.checkLiveTable(data)
-        except HttpError as e:
-            error_reason = (
-                e.error_details[0]["reason"] if e.error_details else "unknown error"
-            )
-
-            # ตรวจสอบว่าเกิด quotaExceeded หรือไม่
-            if error_reason == "quotaExceeded":
-                return None, "Quota exceeded!!!"
-            else:
-                return None, f"Error: {error_reason}"
-        except Exception as e:
-            if "quotaExceeded" in str(e):
-                return None, "Quota exceeded!!!"
-            return None, str(e)
-        return result, None
 
     async def get_live_stream_info(self, video_ids: str, channel_id: str):
         vtuber = self.db.getVtuber(channel_id)
@@ -106,6 +35,7 @@ class LiveStreamStatus:
             # with open("video_detail.json", "w") as outfile:
             #     import json
             #     json.dump(response, outfile)
+            #     print("x")
 
         except Exception as e:
             print(e)
@@ -238,9 +168,10 @@ class LiveStreamStatus:
             data["start_at"] = datetime.strptime(
                 dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z"
             )
-
-            if data["start_at"] in time_list:
-                continue
+            
+            for i in time_list:
+                if data["start_at"] - TIME_ERROR <= i <= data["start_at"] + TIME_ERROR:
+                    continue
 
             time_list.add(data["start_at"])
 
@@ -284,8 +215,10 @@ class LiveStreamStatus:
                 self.db.datetime_gmt(datetime.now()).strftime("%Y-%m-%d"), "%Y-%m-%d"
             )
 
-            if data["start_at"] in time_list:
-                continue
+            for i in time_list:
+                if data["start_at"] - TIME_ERROR <= i <= data["start_at"] + TIME_ERROR:
+                    continue
+
             time_list.add(data["start_at"])
 
             if self.autoCheck and (
@@ -354,7 +287,7 @@ class LiveStreamStatus:
     def get_channel_tag(self, channel_id:str):
         youtube = build('youtube', 'v3', developerKey=api_key)
 
-    # ขอข้อมูล channel โดยใช้ part brandingSettings
+        # ขอข้อมูล channel โดยใช้ part brandingSettings
         request = youtube.channels().list(
             part='snippet,brandingSettings',
             id=channel_id
@@ -363,7 +296,7 @@ class LiveStreamStatus:
         response = request.execute()
         if "items" in response and response["items"]:
             item = response["items"][0]
-            customUrl = item["brandingSettings"]["channel"]["customUrl"]
+            customUrl = item["snippet"]["customUrl"]
             return customUrl.replace("@", "")
         else:
             return None
@@ -477,8 +410,15 @@ class LiveStreamStatus:
 
 
 if __name__ == "__main__":
-    lv = LiveStreamStatus("assets/video.db", False)
-    # get_live_stream
-    asyncio.run(lv.get_live_stream("ShuunAruna"))
+    # lv = LiveStreamStatus("assets/video.db", False)
+    # # get_live_stream
+    # # asyncio.run(lv.get_live_stream("ShuunAruna"))
+    # x = (lv.get_channel_tag("UCGo7fnmWfGQewxZVDmC3iJQ"))
+    # print(x)
+
+    # x= asyncio.run(lv.get_live_stream_info("crHb_En5PwM","UCGo7fnmWfGQewxZVDmC3iJQ"))
+    dic = {"2024-11-29 00:00:00+0700":"2024-11-29 00:00:00+0700", "2024-11-28 00:00:00+0700":None}
+    print(dic["2024-11-28 00:00:00+0700"])
+
 
 
