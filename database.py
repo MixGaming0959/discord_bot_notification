@@ -57,10 +57,10 @@ class DatabaseManager:
             select id, name, youtubetag as channel_tag, image, channelid as channel_id
             from Vtuber
             where (channelid like '%{channel_id}%' or youtubetag like '%{channel_id}%' or name like '%{channel_id}%') and isenable = 1
-            LIMIT 1;
+            ;
         """
         result = self.execute_query(query)
-        if result:
+        if result and len(result) == 1:
             return dict(zip(['id', 'name', 'channel_tag', 'image', 'channel_id'], result[0]))
         else:
             return None

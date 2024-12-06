@@ -20,10 +20,10 @@ if __name__ == "__main__":
     key = Fernet.generate_key()
     print(f"New Key: {key}")
 
-    # de = Encrypt()
-    # message = "Hello World"
-    # encrypt_code = str(de.encrypt(message))
-    # print(encrypt_code)
+    de = Encrypt()
+    message = "Hello World"
+    encrypt_code = str(de.encrypt(message))
+    print(encrypt_code)
 
-    # decrypt_code = ""
-    # print(de.decrypt(decrypt_code))
+    decrypt_code = "gAAAAABnKkJ7XVzWEunmflNOyNx1nF3YYMdAQp3ZlAQmkGS9aKdDkUO11GhtSeFKgc8PnBdDUPwIqshQUADJQ2Yssb3TvcdMtKZnCNYIYwMNN6W40LQ2_kUYDNBcp9s1jFI1tmuXU76H"
+    print(de.decrypt(decrypt_code))

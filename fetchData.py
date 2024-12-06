@@ -1,5 +1,7 @@
 import asyncio
+import textwrap
 from datetime import datetime, timezone, timedelta
+import textwrap
 from database import DatabaseManager
 from googleapiclient.discovery import build  # type: ignore
 from googleapiclient.errors import HttpError  # type: ignore
@@ -197,9 +199,13 @@ class LiveStreamStatus:
                     video_details = data
             else:
                 video_details = data
+            video_details['title'] = self.truncate_string(video_details['title'], 50)
             result.append(video_details)
 
         return result
+
+    def truncate_string(self, s: str, length: int) -> str:
+        return textwrap.shorten(s, width=length)
 
     async def check_live_status(self, channel_tag: str):
         video = self.db.getLiveTable(channel_tag)
