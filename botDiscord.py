@@ -135,7 +135,7 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
                 
                 # ตรวจสอบว่าในวันนี้มีไลฟ์หรือไม่
 
-                # print(start_at, timeNow, start_at < timeNow)
+                print(istoday, stream['title'], (istoday and start_at > timeNow), start_at < timeNow)
                 if (istoday and start_at > timeNow) or (start_at < timeNow) :
                     continue
                 found = True
@@ -432,7 +432,7 @@ async def checkLiveStatus(interaction: discord.Interaction, options: discord.app
             return
 
         for _, v in enumerate(listVtuber):
-            msg = await liveStreamStatus.check_live_status(v['channel_tag'])
+            msg = await liveStreamStatus.check_channel_status(v['channel_tag'])
 
         await interaction.followup.send(msg)
     except Exception as e:

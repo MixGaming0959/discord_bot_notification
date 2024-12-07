@@ -51,6 +51,9 @@ class LiveStreamStatus:
                 video_id = item["id"]
                 if live_status == "none":
                     lis_video_id.remove(video_id)
+                    self.db.cancelLiveTable(
+                        f"https://www.youtube.com/watch?v={video_id}", "end"
+                    )
                     continue
 
                 video_status = item["status"]
@@ -178,22 +181,21 @@ class LiveStreamStatus:
             if found:
                 continue
             time_list.add(data["start_at"])
-
-            if self.autoCheck and (
-                data["live_status"] == "upcoming"
-                and data["start_at"] < self.db.datetime_gmt(datetime.now())
-            ):
-
+            isUpcoming = data["live_status"] in ["upcoming", "live"] and data["start_at"] < self.db.datetime_gmt(datetime.now())
+            if self.autoCheck and isUpcoming:
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
                 video_details = await self.get_live_stream_info(video_id, data["channel_id"])
                 if video_details == None or len(video_details) == 0:
                     continue
                 video_details = video_details[0]
+
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
-                if video_details != None and (
+                if (
                     data["title"] != video_details["title"]
                     or data["image"] != video_details["image"]
-                    or data["start_at"] != video_details["start_at"]):
+                    or data["start_at"] != video_details["start_at"]
+                    or data["live_status"] != video_details["live_status"]):
+                    print("Update", data["title"], video_details["live_status"])
                     self.db.updateLiveTable(video_details)
                 else:
                     video_details = data
@@ -207,7 +209,7 @@ class LiveStreamStatus:
     def truncate_string(self, s: str, length: int) -> str:
         return textwrap.shorten(s, width=length)
 
-    async def check_live_status(self, channel_tag: str):
+    async def check_channel_status(self, channel_tag: str):
         video = self.db.getLiveTable(channel_tag)
 
         # เก็บเวลาไลฟ์ แบบ list
@@ -240,12 +242,11 @@ class LiveStreamStatus:
                 video_details = await self.get_live_stream_info(video_id, data["channel_id"])
                 if video_details == None or len(video_details) == 0:
                     continue
+                video_details = video_details[0]
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
-                if video_details != None and (
-                    data["title"] != video_details["title"]
+                if (data["title"] != video_details["title"]
                     or data["image"] != video_details["image"]
-                    or data["start_at"] != video_details["start_at"]
-                ):
+                    or data["start_at"] != video_details["start_at"]):
                     self.db.updateLiveTable(video_details)
         return f"อัพเดทข้อมูลตาราง {channel_tag} สําเร็จ..."
 
