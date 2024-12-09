@@ -16,6 +16,7 @@ from Encrypt import Encrypt
 
 api_key = Encrypt().decrypt(environ.get("API_KEY"))
 TIME_ERROR = timedelta(minutes=30)
+LIMIT_TRUNCATE_STRING = 100
 
 class LiveStreamStatus:
     def __init__(self, db_path: str, autoCheck: bool = False):
@@ -201,7 +202,7 @@ class LiveStreamStatus:
                     video_details = data
             else:
                 video_details = data
-            video_details['title'] = self.truncate_string(video_details['title'], 50)
+            video_details['title'] = self.truncate_string(video_details['title'], LIMIT_TRUNCATE_STRING)
             result.append(video_details)
 
         return result
