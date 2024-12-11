@@ -19,6 +19,8 @@ WEBHOOK_PORT = load_env("WEBHOOK_PORT")
 PUBSUBHUBBUB_URL = load_env("PUBSUBHUBBUB_URL")
 YOUTUBE_API_KEY = load_env("YOUTUBE_API_KEY")
 DISCORD_BOT_TOKEN = load_env("DISCORD_BOT_TOKEN")
+PROCESSED_PAYLOADS = list()
+LIMIT_TIME_LIFE = 20 # Seconds
 
 # Database
 from database import DatabaseManager
@@ -50,31 +52,61 @@ def webhooks():
         # Parse notification for channel ID and video ID
         video_id, channel_id = parse_notification(notification)
         if video_id and channel_id:
-            result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
-            
-            if result:
-                insertLiveTable(result)
-                for v in result:
-                    if type(v['start_at']) == str:
-                        v['start_at'] = datetime.fromisoformat(v['start_at'])
-                    vtuber = db.getVtuber(v['channel_tag'])
-                    discord_details = db.getDiscordDetails(vtuber['id'], vtuber['gen_id'], vtuber['group_id'])
-                    if v['colaborator']:
-                        for c in v['colaborator'].split(","):
-                            colab = db.getVtuber(c)
-                            if colab:
-                                discord_details += db.getDiscordDetails(colab['id'], colab['gen_id'], colab['group_id']) 
-
-                    if datetime.now() - timedelta(minutes=45) <= (v['start_at']) <= datetime.now() + timedelta(minutes=45):
-                        for detail in discord_details:
-                            send_embed(detail['channel_id'], [v])
-            else:
-                print("https://www.youtube.com/watch?v=" + video_id)
-
+            # create task
+            function(video_id, channel_id)
         else:
             print("No valid video or channel ID found in the notification.")
         return "OK", 200
 
+def function(video_id, channel_id):
+    # wait for 2 second
+    # await asyncio.sleep(2)
+    current_time = db.datetime_gmt(datetime.now())
+    target = {
+        "video_id": video_id,
+        "channel_id": channel_id,
+        "timestamp": current_time
+    }
+
+    # Update processed payloads
+    global PROCESSED_PAYLOADS
+    PROCESSED_PAYLOADS = [
+        p for p in PROCESSED_PAYLOADS if p["timestamp"] > current_time - timedelta(seconds=LIMIT_TIME_LIFE)
+    ]
+
+    # Check
+    for recent in PROCESSED_PAYLOADS:
+        if recent["video_id"] == video_id and recent["channel_id"] == channel_id and parse_datetime(timedelta(seconds=LIMIT_TIME_LIFE), recent["timestamp"], timedelta(seconds=LIMIT_TIME_LIFE)):
+            print("Already processed")
+            return
+    PROCESSED_PAYLOADS.append(target)    
+
+    result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
+
+    if result:
+        insertLiveTable(result)
+        for v in result:
+            print(v['channel_name'], v['live_status'], f"https://www.youtube.com/watch?v={v['video_id']}")
+            if type(v['start_at']) == str:
+                v['start_at'] = datetime.fromisoformat(v['start_at'])
+            vtuber = db.getVtuber(v['channel_tag'])
+            discord_details = db.getDiscordDetails(vtuber['id'], vtuber['gen_id'], vtuber['group_id'])
+            if v['colaborator']:
+                for c in v['colaborator'].split(","):
+                    colab = db.getVtuber(c)
+                    if colab:
+                        discord_details += db.getDiscordDetails(colab['id'], colab['gen_id'], colab['group_id']) 
+            if parse_datetime(timedelta(minutes=45), db.datetime_gmt(v['start_at']), timedelta(minutes=45)) or v['live_status'] in ['live', 'upcomming']:
+                for detail in set(tuple(d.items()) for d in discord_details):
+                    dic = dict(detail)
+                    send_embed(dic['channel_id'], [v])
+    else:
+        print("https://www.youtube.com/watch?v=" + video_id)
+
+def parse_datetime(past_timedelta: timedelta, target_date: datetime, future_timedelta: int) -> bool:
+    current_time = db.datetime_gmt(datetime.now())
+    # print(current_time - past_timedelta , target_date , current_time + future_timedelta)
+    return current_time - past_timedelta <= target_date <= current_time + future_timedelta
 
 def parse_notification(notification):
     """Parse the Atom feed to extract video ID and channel ID."""
@@ -206,4 +238,9 @@ def run_server():
 
 
 if __name__ == "__main__":
+    # dic = set(
+    #     [1,2]: "test",
+    #     [3,4]: "test2"
+    # )
+
     run_server()
