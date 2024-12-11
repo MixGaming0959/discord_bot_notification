@@ -11,7 +11,7 @@ from dotenv import load_dotenv # type: ignore
 load_dotenv()
 from os import environ
 
-def load_env_json(key:str):
+def load_env(key:str):
     return environ.get(key)
 
 # Setup
@@ -25,11 +25,10 @@ def random_color():
 def str_to_bool(s:str) -> bool: 
     return s in ['true', '1', 'yes', 1, True]
 
-de = Encrypt()
-db_path = (load_env_json('DB_PATH'))
+db_path = (load_env('DB_PATH'))
 db = DatabaseManager(db_path)
-AUTO_CHECK = str_to_bool(load_env_json('AUTO_CHECK'))
-ISUPDATE_PATH = (load_env_json('ISUPDATE_PATH'))
+AUTO_CHECK = str_to_bool(load_env('AUTO_CHECK'))
+ISUPDATE_PATH = (load_env('ISUPDATE_PATH'))
 MAX_EMBED_SIZE = 4000
 
 liveStreamStatus = fetchData.LiveStreamStatus(db_path, AUTO_CHECK)
@@ -37,7 +36,7 @@ liveStreamStatus = fetchData.LiveStreamStatus(db_path, AUTO_CHECK)
 def timeNowFunc():
     return liveStreamStatus.db.datetime_gmt(datetime.now())
 
-TOKEN = de.decrypt(load_env_json('TOKEN'))
+TOKEN = load_env('DISCORD_BOT_TOKEN')
 
 @client.event
 async def on_ready():

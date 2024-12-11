@@ -14,7 +14,7 @@ load_dotenv()
 from os import environ
 from Encrypt import Encrypt
 
-api_key = Encrypt().decrypt(environ.get("API_KEY"))
+api_key = environ.get("YOUTUBE_API_KEY")
 TIME_ERROR = timedelta(minutes=30)
 LIMIT_TRUNCATE_STRING = 100
 
@@ -50,7 +50,9 @@ class LiveStreamStatus:
                 snippet = item["snippet"]
                 live_status = snippet["liveBroadcastContent"]
                 video_id = item["id"]
-                if live_status == "none":
+                title = snippet["title"]
+                # title contains "Birthday"
+                if live_status == "none" and "Birthday" not in title:
                     lis_video_id.remove(video_id)
                     self.db.cancelLiveTable(
                         f"https://www.youtube.com/watch?v={video_id}", "end"
@@ -74,7 +76,6 @@ class LiveStreamStatus:
                         f"https://www.youtube.com/watch?v={video_id}", "unknown"
                     )
 
-                title = snippet["title"]
                 if "maxres" in snippet["thumbnails"]:
                     image = snippet["thumbnails"]["maxres"]["url"]
                 elif "high" in snippet["thumbnails"]:
@@ -118,7 +119,7 @@ class LiveStreamStatus:
                 }
 
                 # ตรวจสอบเวลาเริ่มและสถานะการถ่ายทอดสด
-                live_details = item["liveStreamingDetails"]
+                live_details = item["liveStreamingDetails"] if "liveStreamingDetails" in item else ""
                 if "actualStartTime" in live_details:
                     # ถ้าเริ่มถ่ายทอดสดแล้ว แปลงเวลาที่เริ่มเป็น datetime object
                     start_at = datetime.fromisoformat(

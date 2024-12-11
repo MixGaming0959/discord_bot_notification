@@ -54,14 +54,14 @@ class DatabaseManager:
 
     def getVtuber(self, channel_id: str):
         query = f"""
-            select id, name, youtubetag as channel_tag, image, channelid as channel_id
+            select id, name, youtubetag as channel_tag, image, channelid as channel_id, genid as gen_id, groupsid as group_id
             from Vtuber
             where (channelid like '%{channel_id}%' or youtubetag like '%{channel_id}%' or name like '%{channel_id}%') and isenable = 1
             ;
         """
         result = self.execute_query(query)
         if result and len(result) == 1:
-            return dict(zip(['id', 'name', 'channel_tag', 'image', 'channel_id'], result[0]))
+            return dict(zip(['id', 'name', 'channel_tag', 'image', 'channel_id', 'gen_id', 'group_id'], result[0]))
         else:
             return None
     
@@ -303,6 +303,25 @@ class DatabaseManager:
             return True
         else:
             return False
+        
+    def getDiscordDetails(self, vtuber_id, gen_id, group_id):
+        query = f"""
+            select 
+                ds.id, ds.guildid as guild_id, ds.channelid as channel_id
+            from discordserver ds
+            inner join discord_mapping dm on ds.id = dm.discord_id
+        """
+        if vtuber_id:
+            query += f" and dm.DefaultVtuber_ID = '{vtuber_id}'"
+        elif gen_id:
+            query += f" and dm.DefaultGen_ID = '{gen_id}'"
+        elif group_id:
+            query += f" and dm.DefaultGroup_ID = '{group_id}'"
+        result = self.execute_query(query)
+        if result:
+            return [dict(zip(['id', 'guild_id', 'channel_id'], row)) for row in result]
+        else:
+            return []
 
 if __name__ == '__main__':
     from dotenv import load_dotenv # type: ignore
