@@ -77,14 +77,15 @@ def function(video_id, channel_id):
     # Check
     for recent in PROCESSED_PAYLOADS:
         if recent["video_id"] == video_id and recent["channel_id"] == channel_id and parse_datetime(timedelta(seconds=LIMIT_TIME_LIFE), recent["timestamp"], timedelta(seconds=LIMIT_TIME_LIFE)):
-            print("Already processed")
+            print(f"https://youtube.com/watch?v={video_id} is already processed. Skipping.")
             return
     PROCESSED_PAYLOADS.append(target)    
 
     result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
 
     if result:
-        insertLiveTable(result)
+        insertLiveTable(result.copy())
+
         for v in result:
             print(v['channel_name'], v['live_status'], v['url'])
             if type(v['start_at']) == str:
@@ -96,17 +97,22 @@ def function(video_id, channel_id):
                     colab = db.getVtuber(c)
                     if colab:
                         discord_details += db.getDiscordDetails(colab['id'], colab['gen_id'], colab['group_id']) 
-            if parse_datetime(timedelta(minutes=45), db.datetime_gmt(v['start_at']), timedelta(minutes=45)) or v['live_status'] in ['live', 'upcomming']:
+            live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=15), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
+            upcomming_status = v['live_status'] == "upcomming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=45))
+            # print(live_status, upcomming_status)
+            if live_status or upcomming_status:
                 for detail in set(tuple(d.items()) for d in discord_details):
                     dic = dict(detail)
                     send_embed(dic['channel_id'], [v])
+            else:
+                print(f"https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcomming. Skipping.")
     else:
         print("https://www.youtube.com/watch?v=" + video_id)
 
 def parse_datetime(past_timedelta: timedelta, target_date: datetime, future_timedelta: int) -> bool:
     current_time = db.datetime_gmt(datetime.now())
-    # print(current_time - past_timedelta , target_date , current_time + future_timedelta)
-    return current_time - past_timedelta <= target_date <= current_time + future_timedelta
+    # print("parse_datetime", current_time - past_timedelta , target_date ,  current_time + future_timedelta)
+    return current_time - past_timedelta <= target_date and target_date <= current_time + future_timedelta
 
 def parse_notification(notification):
     """Parse the Atom feed to extract video ID and channel ID."""
@@ -127,7 +133,8 @@ def parse_notification(notification):
     return None, None
 
 def insertLiveTable(video_details: list):
-    for data in video_details:
+    copy = video_details.copy()
+    for data in copy:
         db.checkLiveTable(data)
 
 def send_message(channel_id, message):

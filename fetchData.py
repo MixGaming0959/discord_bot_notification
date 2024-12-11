@@ -51,11 +51,14 @@ class LiveStreamStatus:
                 live_status = snippet["liveBroadcastContent"]
                 video_id = item["id"]
                 title = snippet["title"]
+                url = f"https://www.youtube.com/watch?v={video_id}"
+                channel_tag = vtuber["channel_tag"]
                 # title contains "Birthday"
                 if live_status == "none" and "Birthday" not in title:
+                    print(f"Channel {channel_tag} Url: {url} is not live")
                     lis_video_id.remove(video_id)
                     self.db.cancelLiveTable(
-                        f"https://www.youtube.com/watch?v={video_id}", "end"
+                        url, "end"
                     )
                     continue
 
@@ -65,7 +68,7 @@ class LiveStreamStatus:
                 # ตรวจสอบว่าสถานะเป็นส่วนตัวหรือไม่
                 if privacy_status == "private":
                     self.db.cancelLiveTable(
-                        f"https://www.youtube.com/watch?v={video_id}", "private"
+                        url, "private"
                     )
                 elif privacy_status == "public":
                     pass
@@ -73,7 +76,7 @@ class LiveStreamStatus:
                     pass
                 else:
                     self.db.cancelLiveTable(
-                        f"https://www.youtube.com/watch?v={video_id}", "unknown"
+                        url, "unknown"
                     )
 
                 if "maxres" in snippet["thumbnails"]:
@@ -107,7 +110,7 @@ class LiveStreamStatus:
 
                 data = {
                     "title": title,
-                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "url": url,
                     "start_at": None,
                     "colaborator": colaborator,
                     "vtuber_id": vtuber["id"],
@@ -125,25 +128,25 @@ class LiveStreamStatus:
                     start_at = datetime.fromisoformat(
                         live_details["actualStartTime"][:-1]
                     ).replace(tzinfo=timezone.utc)
-                    data["start_at"] = start_at
+                    data["start_at"] = self.db.datetime_gmt(start_at)
                     # current_time = datetime.now(timezone.utc)
                     # elapsed_time = current_time - actual_start_time
                     # print(f"Live started {elapsed_time.total_seconds() // 60} minutes ago.")
+                    # print("Live started:", data["start_at"])
 
                 elif "scheduledStartTime" in live_details:
                     # ถ้ายังไม่เริ่มถ่ายทอดสด ดูเวลาที่ตั้งไว้สำหรับเริ่ม
                     start_at = datetime.fromisoformat(
                         live_details["scheduledStartTime"][:-1]
                     ).replace(tzinfo=timezone.utc)
-                    # print(f"Live is scheduled to start at {scheduled_start_time.strftime('%Y-%m-%d %H:%M:%S%z %Z')}.")
+                    data["start_at"] = self.db.datetime_gmt(start_at)
+                    # print("Live scheduled to start 1:", data["start_at"])
                 else:
                     # now
-                    start_at = datetime.now(timezone.utc)
+                    start_at = self.db.datetime_gmt(datetime.now())
+                    data["start_at"] = start_at
+                    # print("Live scheduled to start 2:", data["start_at"])
 
-                # แปลงเวลาเป็นเวลาประเทศไทย
-                tz = timezone(timedelta(hours=7))
-                new_time = start_at.astimezone(tz)
-                data["start_at"] = new_time
                 lis_video_id.remove(video_id)
                 result.append(data)
 
@@ -152,8 +155,8 @@ class LiveStreamStatus:
                 self.db.cancelLiveTable(
                     f"https://www.youtube.com/watch?v={video_id}", "cancelled"
                 )
-            # print(vtuber["name"], f"https://www.youtube.com/watch?v={video_id}")
-        
+            print(vtuber["name"], f"https://www.youtube.com/watch?v={video_id}", "cancelled")
+       
         return result
 
     def set_channel_id(self, channel_id: str):

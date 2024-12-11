@@ -120,7 +120,7 @@ class DatabaseManager:
             # print("Insert Live Table Success")
             return data
         else:
-            if result[0]['title'] != data['title'] or result[0]['image'] != data['image']:
+            if result[0]['title'] != data['title'] or result[0]['image'] != data['image'] or result[0]['start_at'] != data['colaborator'] or result[0]['live_status'] != data['live_status']:
                 self.updateLiveTable(data)
                 # print("Update Live Table Success")
                 
