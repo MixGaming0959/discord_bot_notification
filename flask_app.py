@@ -86,7 +86,7 @@ def function(video_id, channel_id):
     if result:
         insertLiveTable(result)
         for v in result:
-            print(v['channel_name'], v['live_status'], f"https://www.youtube.com/watch?v={v['video_id']}")
+            print(v['channel_name'], v['live_status'], v['url'])
             if type(v['start_at']) == str:
                 v['start_at'] = datetime.fromisoformat(v['start_at'])
             vtuber = db.getVtuber(v['channel_tag'])
