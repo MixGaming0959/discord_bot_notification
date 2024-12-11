@@ -58,13 +58,13 @@ def webhooks():
                     if type(v['start_at']) == str:
                         v['start_at'] = datetime.fromisoformat(v['start_at'])
                     vtuber = db.getVtuber(v['channel_tag'])
-
-                    discord_details = db.getDiscordDetails(vtuber['id'], None, None)
+                    discord_details = db.getDiscordDetails(vtuber['id'], vtuber['gen_id'], vtuber['group_id'])
                     if v['colaborator']:
                         for c in v['colaborator'].split(","):
                             colab = db.getVtuber(c)
                             if colab:
-                                discord_details += db.getDiscordDetails(colab['id'], None, None) 
+                                discord_details += db.getDiscordDetails(colab['id'], colab['gen_id'], colab['group_id']) 
+
                     if datetime.now() - timedelta(minutes=45) <= (v['start_at']) <= datetime.now() + timedelta(minutes=45):
                         for detail in discord_details:
                             send_embed(detail['channel_id'], [v])

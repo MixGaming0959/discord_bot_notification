@@ -304,19 +304,25 @@ class DatabaseManager:
         else:
             return False
         
-    def getDiscordDetails(self, vtuber_id, gen_id, group_id):
-        query = f"""
+    def getDiscordDetails(self, vtuber_id: str = None, gen_id: str = None, group_id: str = None) -> list:
+        """
+        Get discord server details by vtuber_id, gen_id, or group_id
+        """
+        query = """
             select 
                 ds.id, ds.guildid as guild_id, ds.channelid as channel_id
             from discordserver ds
             inner join discord_mapping dm on ds.id = dm.discord_id
         """
+        conditions = []
         if vtuber_id:
-            query += f" and dm.DefaultVtuber_ID = '{vtuber_id}'"
-        elif gen_id:
-            query += f" and dm.DefaultGen_ID = '{gen_id}'"
-        elif group_id:
-            query += f" and dm.DefaultGroup_ID = '{group_id}'"
+            conditions.append(f" dm.DefaultVtuber_ID = '{vtuber_id}'")
+        if gen_id:
+            conditions.append(f" dm.DefaultGen_ID = '{gen_id}'")
+        if group_id:
+            conditions.append(f" dm.DefaultGroup_ID = '{group_id}'")
+        if conditions:
+            query += " where " + " or ".join(conditions)
         result = self.execute_query(query)
         if result:
             return [dict(zip(['id', 'guild_id', 'channel_id'], row)) for row in result]
@@ -328,13 +334,5 @@ if __name__ == '__main__':
     load_dotenv()
     from os import environ
     
-    db = DatabaseManager(environ.get('DB_PATH'))
-    
-    data = [{'title': '【ROV】เก็บเม็ด Stuart แบบ สโลว์ไลฟ์ จะติดเม็ดซักซีไหน 55', 'url': 'https://www.youtube.com/watch?v=ZV2ej20LNPU', 'start_at': '2024-11-05 14:02:37', 'colaborator': None, 'vtuber_id': '3dabc586-c346-46a2-af55-172db123663c', 'image': 'https://i.ytimg.com/vi/ZV2ej20LNPU/maxresdefault_live.jpg', 'live_status': 'live', 'channel_name': 'Sisira Hydrangea Ch. Pixela S', 'channel_tag': 'SisiraHydrangea', 'channel_id': 'UCjrs5Sse402rafaOP-k37Xw'},
-{'title': '[ Free Chat Room ] ตารางไลฟ์ 03/11  - 09/11 (GMT + 7 )', 'url': 'https://www.youtube.com/watch?v=GGOqTwbBHo0', 'start_at': '2025-02-28 17:45:00', 'colaborator': None, 'vtuber_id': '3dabc586-c346-46a2-af55-172db123663c', 'image': 'https://i.ytimg.com/vi/GGOqTwbBHo0/maxresdefault_live.jpg', 'live_status': 'upcoming', 'channel_name': 'Sisira Hydrangea Ch. Pixela S', 'channel_tag': 'SisiraHydrangea', 'channel_id': 'UCjrs5Sse402rafaOP-k37Xw'},
-{'title': '【ROV】เก็บเม็ด Stuart แบบ สโลว์ไลฟ์ จะติดเม็ดซักซีไหน 55', 'url': 'https://www.youtube.com/watch?v=ZV2ej20LNPU', 'start_at': '2024-11-05 14:02:37', 'colaborator': None, 'vtuber_id': '3dabc586-c346-46a2-af55-172db123663c', 'image': 'https://i.ytimg.com/vi/ZV2ej20LNPU/maxresdefault_live.jpg', 'live_status': 'live', 'channel_name': 'Sisira Hydrangea Ch. Pixela S', 'channel_tag': 'SisiraHydrangea', 'channel_id': 'UCjrs5Sse402rafaOP-k37Xw'},
-{'title': "【Liar's Bar】ฉันได้กลิ่นคนโกหก ft @UminoCiala @PrincessZelina @BlytheBiscuit", 'url': 'https://www.youtube.com/watch?v=MhFKvCT99Ls', 'start_at': '2024-11-05 20:00:00', 'colaborator': 'UminoCiala ,PrincessZelina ,BlytheBiscuit', 'vtuber_id': '3dabc586-c346-46a2-af55-172db123663c', 'image': 'https://i.ytimg.com/vi/MhFKvCT99Ls/maxresdefault_live.jpg', 'live_status': 'upcoming', 'channel_name': 'Sisira Hydrangea Ch. Pixela S', 'channel_tag': 'SisiraHydrangea', 'channel_id': 'UCjrs5Sse402rafaOP-k37Xw'}]
-    
-    for i in data:
-        db.checkLiveTable(i)
+    # print("123 " + " and ".join(["1", "2"]))
     # print(db.getLiveTable('SisiraHydrangea'))
