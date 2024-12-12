@@ -312,7 +312,7 @@ class DatabaseManager:
             select 
                 ds.id, ds.guildid as guild_id, ds.channelid as channel_id
             from discordserver ds
-            inner join discord_mapping dm on ds.id = dm.discord_id
+            inner join discord_mapping dm on ds.id = dm.discord_id and ds.is_active = 1 and dm.need_notifications = 1
         """
         conditions = []
         if vtuber_id:

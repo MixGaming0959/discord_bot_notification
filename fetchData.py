@@ -55,7 +55,7 @@ class LiveStreamStatus:
                 channel_tag = vtuber["channel_tag"]
                 # title contains "Birthday"
                 if live_status == "none" and "Birthday" not in title:
-                    print(f"Channel {channel_tag} Url: {url} is not live")
+                    # print(f"Channel {channel_tag} Url: {url} is not live")
                     lis_video_id.remove(video_id)
                     self.db.cancelLiveTable(
                         url, "end"

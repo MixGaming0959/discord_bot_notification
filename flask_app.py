@@ -50,10 +50,12 @@ def webhooks():
         # print("Raw notification received:", notification.decode("utf-8"))
 
         # Parse notification for channel ID and video ID
-        video_id, channel_id = parse_notification(notification)
-        if video_id and channel_id:
-            # create task
-            function(video_id, channel_id)
+        video_id, channel_id, updated, channel_name = parse_notification(notification)
+        if video_id and channel_id and updated and channel_name:
+            if updated > db.datetime_gmt(datetime.now() - timedelta(days=7)):
+                function(video_id, channel_id)
+            else:
+                print(f"{channel_name} https://youtube.com/watch?v={video_id}; Notification is older than 7 days. Skipping.")
         else:
             print("No valid video or channel ID found in the notification.")
         return "OK", 200
@@ -107,7 +109,18 @@ def function(video_id, channel_id):
             else:
                 print(f"https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcomming. Skipping.")
     else:
-        print("https://www.youtube.com/watch?v=" + video_id)
+        print(f"https://www.youtube.com/watch?v={video_id} is End. Skipping.")
+
+def truncate_date(date_str: str) -> datetime:
+    if "." in date_str:
+        reversed_date_str = date_str[::-1]
+        if "+" in reversed_date_str:
+            reversed_date_str = reversed_date_str[:reversed_date_str.index("+")+1]
+        else:
+            reversed_date_str = reversed_date_str[:reversed_date_str.index("-")+1]
+        date_str = date_str[:date_str.index(".")] + reversed_date_str[::-1]
+
+    return datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S%z')
 
 def parse_datetime(past_timedelta: timedelta, target_date: datetime, future_timedelta: int) -> bool:
     current_time = db.datetime_gmt(datetime.now())
@@ -120,17 +133,24 @@ def parse_notification(notification):
         root = ET.fromstring(notification)
         namespace = {"atom": "http://www.w3.org/2005/Atom"}
         video_id = root.find(".//atom:entry/atom:id", namespace)
-        channel_id = root.find(".//atom:entry/atom:author/atom:uri", namespace)
+        channel_id   = root.find(".//atom:entry/atom:author/atom:uri", namespace)
+        channel_name = root.find(".//atom:entry/atom:author/atom:name", namespace)
+        updated = root.find(".//atom:entry/atom:updated", namespace)
+        if updated is not None:
+            updated = db.datetime_gmt(truncate_date(updated.text))
+        else:
+            updated = db.datetime_gmt(datetime.now())
 
-        if video_id is not None and channel_id is not None:
+        if video_id is not None and channel_id is not None and channel_name is not None and updated is not None:
             video_id = video_id.text.split(":")[-1]
-            channel_id = channel_id.text.split("/")[
-                -1
-            ]  # Extract the channel ID from the URI
-            return video_id, channel_id
+            channel_id = channel_id.text.split("/")[-1] 
+            channel_name = channel_name.text
+            return video_id, channel_id, updated, channel_name
+        else:
+            print("Raw notification received:", notification.decode("utf-8"))
     except Exception as e:
         print(f"Error parsing notification: {e}")
-    return None, None
+    return None, None, None, None
 
 def insertLiveTable(video_details: list):
     copy = video_details.copy()
@@ -249,5 +269,6 @@ if __name__ == "__main__":
     #     [1,2]: "test",
     #     [3,4]: "test2"
     # )
+    # 2024-12-12T09:22:29.94795202+00:00 to 2024-12-12T09:22:29+00:00
 
     run_server()
