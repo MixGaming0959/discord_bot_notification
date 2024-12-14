@@ -395,7 +395,14 @@ class LiveStreamStatus:
                 playlistId=member_playlist,
                 maxResults=5
             )
-            response_member = request_member.execute()
+            try:
+                response_member = request_member.execute()
+                # googleapiclient.errors.HttpError: <HttpError 404 when requesting https://youtube.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=UUMOcRaKGCG3RFenb8D2php_Jw&maxResults=5&key=AIzaSyABUXA9Feul73lQRgpytUV1OdsG2GzmtLM&alt=json returned "The playlist identified with the request's <code>playlistId</code> parameter cannot be found.". Details: "[{'message': "The playlist identified with the request's <code>playlistId</code> parameter cannot be found.", 'domain': 'youtube.playlistItem', 'reason': 'playlistNotFound', 'location': 'playlistId', 'locationType': 'parameter'}]">
+            except HttpError as e:
+                if e.error_details[0]["reason"] == "playlistNotFound":
+                    response_member = {"items": []}
+                else:
+                    raise e
         except HttpError as e:
             error_reason = (
                 e.error_details[0]["reason"] if e.error_details else "unknown error"
