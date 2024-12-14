@@ -132,7 +132,7 @@ def function(video_id:str, result:list, loop:int= 0):
             group_ids = set()
             print(v['channel_name'], v['live_status'], v['url'])
             if type(v['start_at']) == str:
-                v['start_at'] = datetime.fromisoformat(v['start_at'])
+                v['start_at'] = db.datetime_gmt(datetime.fromisoformat(v['start_at']))
             vtuber = db.getVtuber(v['channel_tag'])
             vtuber_ids.add(vtuber['id'])
             gen_ids.add(vtuber['gen_id'])
@@ -154,7 +154,7 @@ def function(video_id:str, result:list, loop:int= 0):
                     send_embed(dic['channel_id'], [v])
             elif SEND_MSG_WHEN_START:
                 loop += 1
-                Timer(5, function, args=(video_id, result, loop,)).start()
+                Timer(5, function, args=(video_id, result, loop)).start()
                 print(f"Start at {v['start_at']} is not live or upcomming. Skipping.")
                 print(f"https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcomming. Skipping.")
     else:
@@ -163,7 +163,7 @@ def function(video_id:str, result:list, loop:int= 0):
 async def wait_for_notification():
     await asyncio.sleep(1)
 
-def truncate_date(date_str: str) -> datetime:
+def truncate_date(date_str: str, date_format="%Y-%m-%dT%H:%M:%S%z") -> datetime:
     if "." in date_str:
         reversed_date_str = date_str[::-1]
         if "+" in reversed_date_str:
@@ -172,7 +172,7 @@ def truncate_date(date_str: str) -> datetime:
             reversed_date_str = reversed_date_str[:reversed_date_str.index("-")+1]
         date_str = date_str[:date_str.index(".")] + reversed_date_str[::-1]
 
-    return datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S%z')
+    return datetime.strptime(date_str, date_format)
 
 def parse_datetime(past_timedelta: timedelta, target_date: datetime, future_timedelta: int) -> bool:
     current_time = db.datetime_gmt(datetime.now())
