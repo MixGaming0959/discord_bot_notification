@@ -150,7 +150,7 @@ class LiveStreamStatus:
                 lis_video_id.remove(video_id)
                 result.append(data)
 
-        if len(lis_video_id) != 0:
+        if len(lis_video_id) != 0 and lis_video_id[0] != "":
             for video_id in lis_video_id:
                 self.db.cancelLiveTable(
                     f"https://www.youtube.com/watch?v={video_id}", "cancelled"
@@ -175,12 +175,10 @@ class LiveStreamStatus:
         for data in video:
             video_details = {}
             dt = datetime.fromisoformat(data["start_at"])
-            data["start_at"] = datetime.strptime(
-                dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z"
-            )
+            data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
             found = False
             for i in time_list:
-                if data["start_at"] - TIME_ERROR <= i <= data["start_at"] + TIME_ERROR:
+                if data["start_at"] - TIME_ERROR <= i <= data["start_at"] + TIME_ERROR and data['colaborator'] != None:
                     found = True
                     break
             if found:
@@ -225,7 +223,7 @@ class LiveStreamStatus:
             return f"ไม่มีการอัพเดทข้อมูลตาราง {channel_tag}..."
         for data in video:
             dt = datetime.fromisoformat(data["start_at"])
-            data["start_at"] = datetime.strptime(dt.strftime("%Y-%m-%d"), "%Y-%m-%d")
+            data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
             timeNow = datetime.strptime(
                 self.db.datetime_gmt(datetime.now()).strftime("%Y-%m-%d"), "%Y-%m-%d"
             )
@@ -324,10 +322,14 @@ class LiveStreamStatus:
             playlist_id = self.get_channel_info(channel_id)
             if playlist_id == None:
                 raise ValueError("Cannot get channel info")
-
+            # print(playlist_id)
             lis_video_id = self.get_playlist_item(playlist_id, channel_id)
             if lis_video_id == None:
                 raise ValueError("Cannot get playlist item")
+            
+            if len(lis_video_id) == 0:
+                # print("No live or upcoming broadcasts found.")
+                return None, None
 
             video_details = await self.get_live_stream_info(",".join(lis_video_id), channel_id)
             if video_details == None:
@@ -387,7 +389,7 @@ class LiveStreamStatus:
                 maxResults=10
             )
             response = request.execute()
-
+            # print(member_playlist)
             request_member = youtube.playlistItems().list(
                 part="contentDetails",
                 playlistId=member_playlist,
@@ -408,7 +410,7 @@ class LiveStreamStatus:
             # print("normal")
             for item in response["items"]:
                 detail = item["contentDetails"] 
-                publishedAt = self.db.datetime_gmt(datetime.strptime(detail["videoPublishedAt"], "%Y-%m-%dT%H:%M:%SZ"))
+                publishedAt = self.db.datetime_gmt(self.truncate_date(detail["videoPublishedAt"], "%Y-%m-%dT%H:%M:%SZ"))
                 if not (publishedAt >= timeAfter and publishedAt <= timeBefore):
                     break
                 video_id = str(detail["videoId"])
@@ -418,7 +420,8 @@ class LiveStreamStatus:
             # print("member")
             for item in response_member["items"]:
                 detail = item["contentDetails"] 
-                publishedAt = self.db.datetime_gmt(datetime.strptime(detail["videoPublishedAt"], "%Y-%m-%dT%H:%M:%SZ"))
+                    
+                publishedAt = self.db.datetime_gmt(self.truncate_date(detail["videoPublishedAt"], "%Y-%m-%dT%H:%M:%SZ"))
                 if not (publishedAt >= timeAfter and publishedAt <= timeBefore):
                     break
                 video_id = str(detail["videoId"])
@@ -426,17 +429,78 @@ class LiveStreamStatus:
 
         return result_video_id
 
+    async def get_live_stream_30(self):
+        video = self.db.getLiveTable_30()
 
+        # เก็บเวลาไลฟ์ แบบ list
+        time_list = set()
+
+        result = []
+        # ตรวจสอบว่าเริ่มถ่ายทอดสดหรือยัง
+        if video == None:
+            return result
+        
+        for data in video:
+            video_details = {}
+            dt = datetime.fromisoformat(data["start_at"])
+            data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
+            # print(data["is_noti"])
+            if data['is_noti'] == 1:
+                continue
+
+            time_list.add(data["start_at"])
+            isUpcoming = data["live_status"] in ["upcoming", "live"] and data["start_at"] < self.db.datetime_gmt(datetime.now())
+            if self.autoCheck and isUpcoming:
+                video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
+                video_details = await self.get_live_stream_info(video_id, data["channel_id"])
+                if video_details == None or len(video_details) == 0:
+                    continue
+
+                video_details = video_details[0]
+                video_details['is_noti'] = True
+
+                # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
+                if (
+                    data["title"] != video_details["title"]
+                    or data["image"] != video_details["image"]
+                    or data["start_at"] != video_details["start_at"]
+                    or data["live_status"] != video_details["live_status"]):
+                    print("Update", data["title"], video_details["live_status"])
+                    self.db.updateLiveTable(video_details)
+                else:
+                    video_details = data
+            else:
+                video_details = data
+
+            video_details['is_noti'] = True
+            self.db.updateLiveTable(video_details)
+
+            video_details['title'] = self.truncate_string(video_details['title'], LIMIT_TRUNCATE_STRING)
+            result.append(video_details)
+
+        return result
+    
+    def truncate_date(self, date_str: str, date_format="%Y-%m-%dT%H:%M:%S%z") -> datetime:
+        if "." in date_str:
+            reversed_date_str = date_str[::-1]
+            if "+" in reversed_date_str:
+                reversed_date_str = reversed_date_str[:reversed_date_str.index("+")+1]
+            else:
+                reversed_date_str = reversed_date_str[:reversed_date_str.index("-")+1]
+            date_str = date_str[:date_str.index(".")] + reversed_date_str[::-1]
+
+        return datetime.strptime(date_str, date_format)
 if __name__ == "__main__":
-    # lv = LiveStreamStatus("assets/video.db", False)
+    lv = LiveStreamStatus("assets/video.db", True)
     # # get_live_stream
     # # asyncio.run(lv.get_live_stream("ShuunAruna"))
     # x = (lv.get_channel_tag("UCGo7fnmWfGQewxZVDmC3iJQ"))
     # print(x)
 
-    # x= asyncio.run(lv.get_live_stream_info("crHb_En5PwM","UCGo7fnmWfGQewxZVDmC3iJQ"))
-    dic = {"2024-11-29 00:00:00+0700":"2024-11-29 00:00:00+0700", "2024-11-28 00:00:00+0700":None}
-    print(dic["2024-11-28 00:00:00+0700"])
+    x = asyncio.run(lv.get_live_stream_30())
+    for i in x:
+        print(i['title'])
 
+    
 
 

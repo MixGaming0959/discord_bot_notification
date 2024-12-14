@@ -142,11 +142,14 @@ class DatabaseManager:
     def updateLiveTable(self, data: dict):
         query = """
             update livetable
-            set title = ?, url = ?, startat = ?, colaborator = ?, image = ?, livestatus = ?
+            set title = ?, url = ?, startat = ?, colaborator = ?, image = ?, livestatus = ?, isnoti = ?
             where url = ?
         """
+        # is_noti in data ?
+
+        isNoti = data['is_noti'] if 'is_noti' in data else False
         self.execute_many(
-            query,[(data["title"], data["url"], data["start_at"], data["colaborator"], data["image"], data['live_status'], data["url"])],
+            query,[(data["title"], data["url"], data["start_at"], data["colaborator"], data["image"], data['live_status'], isNoti, data["url"])],
         )
     
     def getLiveTable(self, channelTag: dict):
@@ -168,6 +171,26 @@ class DatabaseManager:
             return [dict(zip(['title', 'url', 'start_at', 'colaborator', 'channel_tag', 'image', 'vtuber_id', 'live_status', 'channel_id'], row)) for row in result]
         else:
             return None
+        
+    def getLiveTable_30(self):
+        dt_past = self.datetime_gmt(datetime.now() - timedelta(minutes=30))
+        dt_future = self.datetime_gmt(datetime.now() + timedelta(minutes=30))
+        query = f"""
+            select title, url, startat as start_at, colaborator, 
+            vtuber.youtubetag as channel_tag, livetable.image, 
+            vtuber.id as vtuber_id, livetable.livestatus as live_status,
+            vtuber.channelid as channel_id, isnoti as is_noti, vtuber.name as channel_name
+            from livetable
+            inner join vtuber on livetable.vtuberid = vtuber.id
+            where livetable.livestatus in ('upcoming', 'live') and start_at > '{dt_past}' and start_at < '{dt_future}'
+            order by start_at asc;
+        """
+        result = self.execute_query(query)
+        if result:
+            return [dict(zip(['title', 'url', 'start_at', 'colaborator', 'channel_tag', 'image', 'vtuber_id', 'live_status', 'channel_id', 'is_noti', 'channel_name'], row)) for row in result]
+        else:
+            return None
+
     # ยก Live
     def cancelLiveTable(self, url: str, livestatus: str):
         query = f"""
@@ -304,7 +327,7 @@ class DatabaseManager:
         else:
             return False
         
-    def getDiscordDetails(self, vtuber_id: str = None, gen_id: str = None, group_id: str = None) -> list:
+    def getDiscordDetails(self, vtuber_id: list = None, gen_id: list = None, group_id: list = None) -> list:
         """
         Get discord server details by vtuber_id, gen_id, or group_id
         """
@@ -316,11 +339,14 @@ class DatabaseManager:
         """
         conditions = []
         if vtuber_id:
-            conditions.append(f" dm.DefaultVtuber_ID = '{vtuber_id}'")
+            vtuber_id = ",".join(["'{}'".format(x) for x in vtuber_id])
+            conditions.append(f" dm.DefaultVtuber_ID in ({vtuber_id})")
         if gen_id:
-            conditions.append(f" dm.DefaultGen_ID = '{gen_id}'")
+            gen_id = ",".join(["'{}'".format(x) for x in gen_id])
+            conditions.append(f" dm.DefaultGen_ID in ({gen_id})")
         if group_id:
-            conditions.append(f" dm.DefaultGroup_ID = '{group_id}'")
+            group_id = ",".join(["'{}'".format(x) for x in group_id])
+            conditions.append(f" dm.DefaultGroup_ID in ({group_id})")
         if conditions:
             query += " where " + " or ".join(conditions)
         result = self.execute_query(query)
@@ -328,11 +354,26 @@ class DatabaseManager:
             return [dict(zip(['id', 'guild_id', 'channel_id'], row)) for row in result]
         else:
             return []
+        
+    def discordAuth(self, discord_id: str, channel_id: str):
+        query = f"""
+            select * from discordserver ds where ds.guildid = '{discord_id}' and ds.channelid = '{channel_id}';
+        """
+        result = self.execute_query(query)
+        if result:
+            return True
+        else:
+            return False
+        
 
 if __name__ == '__main__':
     from dotenv import load_dotenv # type: ignore
     load_dotenv()
     from os import environ
     
+    db = DatabaseManager(environ.get("DB_PATH"))
+
+    print(db.getLiveTable_30())
+
     # print("123 " + " and ".join(["1", "2"]))
     # print(db.getLiveTable('SisiraHydrangea'))

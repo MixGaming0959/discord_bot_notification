@@ -1,1 +1,1 @@
-https://e1e8-58-8-177-99.ngrok-free.app/webhooks
+https://e05f-58-8-177-99.ngrok-free.app/api/v1/webhooks

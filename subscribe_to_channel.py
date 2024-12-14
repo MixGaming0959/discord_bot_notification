@@ -19,7 +19,6 @@ PUBSUBHUBBUB_URL = load_env("PUBSUBHUBBUB_URL")
 WEBHOOK_URL = load_env("WEBHOOK_URL")
 OLD_WEBHOOK_PATH = load_env("OLD_WEBHOOK_PATH")
 
-
 def subscribe_to_channel(channel_details, callback_url, subscribe):
     """Subscribe to a YouTube channel's feed."""
     channel_id = channel_details["channel_id"]

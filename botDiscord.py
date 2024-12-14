@@ -74,6 +74,11 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
     listVtuber = []
     lis_embed = []
     try:
+        txt = discordAuthChannel(interaction)
+        if txt != None:
+            await interaction.followup.send(txt)
+            return
+        
         # remove head and back white space
         name = name.strip()
         if options.value == 0:
@@ -162,17 +167,17 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
             )
             await interaction.followup.send(embeds=[embed])
             return
-        
-        await interaction.followup.send(embeds=lis_embed, ephemeral=True)
 
-        # for i in range(len(lis_embed)):
-        #     lis_embed[i].set_footer(text=f"Page: {i+1}/{len(lis_embed)}")
-        # # Create the paginator view
-        # paginator = Paginator(embeds=lis_embed)
+        for i in range(len(lis_embed)):
+            lis_embed[i].set_footer(text=f"Page: {i+1}/{len(lis_embed)}")
+        # Create the paginator view
+        paginator = Paginator(embeds=lis_embed)
+        
+        # await interaction.followup.send(embeds=lis_embed, ephemeral=True)
 
         # # Send the first embed
-        # message = await interaction.followup.send(embed=lis_embed[0], view=paginator)
-        # paginator.message = message  # Store the message for later access
+        message = await interaction.followup.send(embed=lis_embed[0], view=paginator)
+        paginator.message = message  # Store the message for later access
     except Exception as e:
         print("Error: ", traceback.format_exc())
         await interaction.followup.send(f"Error: {e}")
@@ -186,6 +191,11 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
     listEmbed = []
 
     try:
+        txt = discordAuthChannel(interaction)
+        if txt != None:
+            await interaction.followup.send(txt)
+            return
+        
         if date != "":
             date_obj = datetime.strptime(date, "%d/%m/%Y")
             date_obj = date_obj.replace(year=date_obj.year - 543)
@@ -265,7 +275,9 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
             listEmbed[i].set_footer(text=f"Pages: {i+1}/{len(listEmbed)}")
 
         listEmbed = truncate_embed(listEmbed)
-        await interaction.followup.send(embeds=listEmbed)
+        # await interaction.followup.send(embeds=listEmbed)
+
+        # TODO: ยังไม่ได้ใช้งาน 
         # interaction.followup.send("แสดงตารางไลฟ์...", ephemeral=True)
         # channel = client.get_channel(interaction.channel_id)
         # if len(listEmbed) >= 10:
@@ -285,11 +297,11 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
         # await channel.send(embed=listEmbed)
         
         # Create the paginator view
-        # paginator = Paginator(embeds=listEmbed, timeout=60)
+        paginator = Paginator(embeds=listEmbed, timeout=60)
 
-        # # Send the first embed
-        # message = await interaction.followup.send(embed=listEmbed[0], view=paginator, ephemeral=True)
-        # paginator.message = message  # Store the message for later access
+        # Send the first embed
+        message = await interaction.followup.send(embed=listEmbed[0], view=paginator, ephemeral=True)
+        paginator.message = message  # Store the message for later access
 
     except Exception as e:
         print(traceback.format_exc())
@@ -351,6 +363,11 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
    
     listVtuber = []
     try:
+        txt = discordAuthChannel(interaction)
+        if txt != None:
+            await interaction.followup.send(txt)
+            return
+        
         name = name.strip()
         if options.value == 0:
             listVtuber = [db.getVtuber(name)]
@@ -416,6 +433,11 @@ async def checkLiveStatus(interaction: discord.Interaction, options: discord.app
    
     listVtuber = []
     try:
+        txt = discordAuthChannel(interaction)
+        if txt != None:
+            await interaction.followup.send(txt)
+            return
+        
         name = name.strip()
         if options.value == 0:
             listVtuber = [db.getVtuber(name)]
@@ -497,6 +519,11 @@ class Paginator(discord.ui.View):
 async def insertNewChannel(interaction: discord.Interaction, username: str, gen_name: str="Independence", group_name: str="Independence"):
     await interaction.response.defer()
     try:
+        txt = discordAuthChannel(interaction)
+        if txt != None:
+            await interaction.followup.send(txt)
+            return
+        
         result = liveStreamStatus.insert_channel(username, gen_name, group_name)
         if result == None:
             raise ValueError("ไม่พบช่องที่ต้องการ")
@@ -516,6 +543,11 @@ async def insertNewChannel(interaction: discord.Interaction, username: str, gen_
 async def insertVideo(interaction: discord.Interaction, url: str):
     await interaction.response.defer()
     try:
+        txt = discordAuthChannel(interaction)
+        if txt != None:
+            await interaction.followup.send(txt)
+            return
+
         video_id = url.replace("https://www.youtube.com/watch?v=", "")
         video_detail = await liveStreamStatus.get_live_stream_info(video_id)
         if video_detail == None:
@@ -529,10 +561,23 @@ async def insertVideo(interaction: discord.Interaction, url: str):
 @client.tree.command(name='test', description="สำหรับ Test เท่านั้น")
 async def test(interaction: discord.Interaction, group_name: str):
     await interaction.response.defer()
+
+    txt = discordAuthChannel(interaction)
+    if txt != None:
+        await interaction.followup.send(txt)
+        return
     
     await interaction.followup.send(f"สำหรับ Test เท่านั้น")
     return
 
+def discordAuthChannel(interaction: discord.Interaction):
+    channel = str(interaction.channel.id)
+    guild = str(interaction.guild.id)
+
+    if db.discordAuth(guild, channel):
+        return None
+    
+    return "ไม่อนุญาตให้ใช้ Command ในช่องนี้"
 
 
 client.run(TOKEN)

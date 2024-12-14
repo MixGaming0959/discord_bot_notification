@@ -1,4 +1,5 @@
 from random import randint
+from threading import Timer
 from flask import Flask, request
 import requests
 import xml.etree.ElementTree as ET
@@ -12,6 +13,8 @@ app = Flask(__name__)
 load_dotenv()
 def load_env(key:str):
     return environ.get(key)
+def str_to_bool(s:str) -> bool: 
+    return s in ['true', '1', 'yes', 1, True]
 
 # Constants
 WEBHOOK_URL = load_env("WEBHOOK_URL")
@@ -22,6 +25,8 @@ DISCORD_BOT_TOKEN = load_env("DISCORD_BOT_TOKEN")
 PROCESSED_PAYLOADS = list()
 LIMIT_TIME_LIFE = 20 # Seconds
 
+# str to bool
+SEND_MSG_WHEN_START = str_to_bool(load_env('SEND_MSG_WHEN_START'))
 # Database
 from database import DatabaseManager
 
@@ -35,7 +40,9 @@ MAX_EMBED_SIZE = 4000
 from fetchData import LiveStreamStatus
 liveStreamStatus = LiveStreamStatus(db_path, AUTO_CHECK)
 
-@app.route("/webhooks", methods=["GET", "POST"])
+API_ROUTE = ""
+
+@app.route("/api/v1/webhooks", methods=["GET", "POST"])
 def webhooks():
     if request.method == "GET":
         # Verification
@@ -53,39 +60,70 @@ def webhooks():
         video_id, channel_id, updated, channel_name = parse_notification(notification)
         if video_id and channel_id and updated and channel_name:
             if updated > db.datetime_gmt(datetime.now() - timedelta(days=7)):
-                function(video_id, channel_id)
+
+                current_time = db.datetime_gmt(datetime.now())
+                target = {
+                    "video_id": video_id,
+                    "channel_id": channel_id,
+                    "timestamp": current_time
+                }
+
+                # Update processed payloads
+                global PROCESSED_PAYLOADS
+                PROCESSED_PAYLOADS = [
+                    p for p in PROCESSED_PAYLOADS if p["timestamp"] > current_time - timedelta(seconds=LIMIT_TIME_LIFE)
+                ]
+
+                # Check
+                for recent in PROCESSED_PAYLOADS:
+                    if recent["video_id"] == video_id and recent["channel_id"] == channel_id and parse_datetime(timedelta(seconds=LIMIT_TIME_LIFE), recent["timestamp"], timedelta(seconds=LIMIT_TIME_LIFE)):
+                        print(f"https://youtube.com/watch?v={video_id} is already processed. Skipping.")
+                        return "OK", 200
+                PROCESSED_PAYLOADS.append(target)    
+
+                result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
+                function(video_id, result)
             else:
                 print(f"{channel_name} https://youtube.com/watch?v={video_id}; Notification is older than 7 days. Skipping.")
         else:
             print("No valid video or channel ID found in the notification.")
         return "OK", 200
 
-def function(video_id, channel_id):
-    # wait for 2 second
-    # await asyncio.sleep(2)
-    current_time = db.datetime_gmt(datetime.now())
-    target = {
-        "video_id": video_id,
-        "channel_id": channel_id,
-        "timestamp": current_time
-    }
+# @app.route("api/v1/live_videos", methods=["GET"])
+def get_live_videos():
+    result = asyncio.run(liveStreamStatus.get_live_stream_30())
+    vtuber_id = set()
+    gen_id = set()
+    group_id = set()
 
-    # Update processed payloads
-    global PROCESSED_PAYLOADS
-    PROCESSED_PAYLOADS = [
-        p for p in PROCESSED_PAYLOADS if p["timestamp"] > current_time - timedelta(seconds=LIMIT_TIME_LIFE)
-    ]
+    for r in result:
+        vtuber_id = set()
+        gen_id = set()
+        group_id = set()
+        vtuber = db.getVtuber(r["channel_id"])
+        vtuber_id.add(vtuber["id"])
+        gen_id.add(vtuber["gen_id"])
+        group_id.add(vtuber["group_id"])
+        if r['colaborator'] != None:
+            r['colaborator'] = r['colaborator'].split(",")
+            for c in r['colaborator']:
+                vtuber_tmp = db.getVtuber(c)
+                if vtuber_tmp == None:
+                    continue
+                vtuber_id.add(vtuber_tmp["id"])
+                gen_id.add(vtuber_tmp["gen_id"])
+                group_id.add(vtuber_tmp["group_id"])
+    
+        discord_channel = db.getDiscordDetails(list(vtuber_id), list(gen_id), list(group_id))
+        for d in discord_channel:
+            if d["channel_id"] == None:
+                continue
+            send_embed(d["channel_id"], [r])
 
-    # Check
-    for recent in PROCESSED_PAYLOADS:
-        if recent["video_id"] == video_id and recent["channel_id"] == channel_id and parse_datetime(timedelta(seconds=LIMIT_TIME_LIFE), recent["timestamp"], timedelta(seconds=LIMIT_TIME_LIFE)):
-            print(f"https://youtube.com/watch?v={video_id} is already processed. Skipping.")
-            return
-    PROCESSED_PAYLOADS.append(target)    
+    return "OK", 200
 
-    result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
-
-    if result:
+def function(video_id:str, result:list, loop:int= 0):
+    if result and loop < 2:
         insertLiveTable(result.copy())
 
         for v in result:
@@ -99,17 +137,23 @@ def function(video_id, channel_id):
                     colab = db.getVtuber(c)
                     if colab:
                         discord_details += db.getDiscordDetails(colab['id'], colab['gen_id'], colab['group_id']) 
-            live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=15), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
+            live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=60), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
             upcomming_status = v['live_status'] == "upcomming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=45))
             # print(live_status, upcomming_status)
-            if live_status or upcomming_status:
+            if (live_status or upcomming_status) and SEND_MSG_WHEN_START:
                 for detail in set(tuple(d.items()) for d in discord_details):
                     dic = dict(detail)
                     send_embed(dic['channel_id'], [v])
-            else:
+            elif SEND_MSG_WHEN_START:
+                loop += 1
+                Timer(5, function, args=(video_id, result, loop,)).start()
+                print(f"Start at {v['start_at']} is not live or upcomming. Skipping.")
                 print(f"https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcomming. Skipping.")
     else:
         print(f"https://www.youtube.com/watch?v={video_id} is End. Skipping.")
+
+async def wait_for_notification():
+    await asyncio.sleep(1)
 
 def truncate_date(date_str: str) -> datetime:
     if "." in date_str:
@@ -179,6 +223,7 @@ def send_embed(channel_id, data: list):
         "Content-Type": "application/json",
         "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
     }
+
     embeds = create_embed(data)
     response = requests.post(url, headers=headers, json=embeds)
     if response.status_code == 200:
@@ -263,12 +308,14 @@ def random_color():
 def run_server():
     app.run(host="0.0.0.0", port=WEBHOOK_PORT)
 
+def loop_get_live_videos():
+    while True:
+        get_live_videos()
+        asyncio.run(asyncio.sleep(10))
+        
 
 if __name__ == "__main__":
-    # dic = set(
-    #     [1,2]: "test",
-    #     [3,4]: "test2"
-    # )
-    # 2024-12-12T09:22:29.94795202+00:00 to 2024-12-12T09:22:29+00:00
+
+    # Timer(0, loop_get_live_videos, args=()).start()
 
     run_server()
