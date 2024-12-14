@@ -127,18 +127,26 @@ def function(video_id:str, result:list, loop:int= 0):
         insertLiveTable(result.copy())
 
         for v in result:
+            vtuber_ids = set()
+            gen_ids = set()
+            group_ids = set()
             print(v['channel_name'], v['live_status'], v['url'])
             if type(v['start_at']) == str:
                 v['start_at'] = datetime.fromisoformat(v['start_at'])
             vtuber = db.getVtuber(v['channel_tag'])
-            discord_details = db.getDiscordDetails(vtuber['id'], vtuber['gen_id'], vtuber['group_id'])
+            vtuber_ids.add(vtuber['id'])
+            gen_ids.add(vtuber['gen_id'])
+            group_ids.add(vtuber['group_id'])
             if v['colaborator']:
                 for c in v['colaborator'].split(","):
                     colab = db.getVtuber(c)
                     if colab:
-                        discord_details += db.getDiscordDetails(colab['id'], colab['gen_id'], colab['group_id']) 
+                        vtuber_ids.add(colab['id'])
+                        gen_ids.add(colab['gen_id'])
+                        group_ids.add(colab['group_id'])
             live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=60), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
             upcomming_status = v['live_status'] == "upcomming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=45))
+            discord_details = db.getDiscordDetails(list(vtuber_ids), list(gen_ids), list(group_ids))
             # print(live_status, upcomming_status)
             if (live_status or upcomming_status) and SEND_MSG_WHEN_START:
                 for detail in set(tuple(d.items()) for d in discord_details):
