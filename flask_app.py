@@ -95,40 +95,6 @@ def wait_result(video_id, channel_id):
     # print(db.datetime_gmt(datetime.now()), video_id, channel_id, result)
     function(video_id, result)
 
-
-# @app.route("api/v1/live_videos", methods=["GET"])
-def get_live_videos():
-    result = asyncio.run(liveStreamStatus.get_live_stream_30())
-    vtuber_id = set()
-    gen_id = set()
-    group_id = set()
-
-    for r in result:
-        vtuber_id = set()
-        gen_id = set()
-        group_id = set()
-        vtuber = db.getVtuber(r["channel_id"])
-        vtuber_id.add(vtuber["id"])
-        gen_id.add(vtuber["gen_id"])
-        group_id.add(vtuber["group_id"])
-        if r['colaborator'] != None:
-            r['colaborator'] = r['colaborator'].split(",")
-            for c in r['colaborator']:
-                vtuber_tmp = db.getVtuber(c)
-                if vtuber_tmp == None:
-                    continue
-                vtuber_id.add(vtuber_tmp["id"])
-                gen_id.add(vtuber_tmp["gen_id"])
-                group_id.add(vtuber_tmp["group_id"])
-    
-        discord_channel = db.getDiscordDetails(list(vtuber_id), list(gen_id), list(group_id))
-        for d in discord_channel:
-            if d["channel_id"] == None:
-                continue
-            send_embed(d["channel_id"], [r])
-
-    return "OK", 200
-
 def function(video_id:str, result:list, loop:int= 0):
     if result and loop < 2:
         insertLiveTable(result.copy())
@@ -322,11 +288,6 @@ def random_color():
 
 def run_server():
     app.run(host="0.0.0.0", port=WEBHOOK_PORT)
-
-def loop_get_live_videos():
-    while True:
-        get_live_videos()
-        asyncio.run(asyncio.sleep(10))
         
 
 if __name__ == "__main__":

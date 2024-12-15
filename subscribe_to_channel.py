@@ -40,15 +40,20 @@ def subscribe_to_channel(channel_details, callback_url, subscribe):
     except Exception as e:
         print(f"An error occurred: {e}")
 
-with open(OLD_WEBHOOK_PATH, "r") as file: 
-    old_webhook = file.read()
-    if old_webhook != WEBHOOK_URL:
-        for channel_id in CHANNEL_IDS:
-            subscribe_to_channel(channel_id, old_webhook, "unsubscribe")
-        for v in CHANNEL_IDS:
-            # print(v)
-            subscribe_to_channel(v, WEBHOOK_URL, "subscribe")
+def run_subscribe_to_channel():
+    with open(OLD_WEBHOOK_PATH, "r") as file: 
+        old_webhook = file.read()
+        if old_webhook != WEBHOOK_URL:
+            for channel_id in CHANNEL_IDS:
+                subscribe_to_channel(channel_id, old_webhook, "unsubscribe")
+            for v in CHANNEL_IDS:
+                # print(v)
+                subscribe_to_channel(v, WEBHOOK_URL, "subscribe")
 
-with open(OLD_WEBHOOK_PATH, "w") as file:
-    file.write(WEBHOOK_URL)
+    with open(OLD_WEBHOOK_PATH, "w") as file:
+        file.write(WEBHOOK_URL)
 
+    print("Run subscribe_to_channel Complete!!!")
+
+if __name__ == "__main__":
+    run_subscribe_to_channel()

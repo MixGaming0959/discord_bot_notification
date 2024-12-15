@@ -624,5 +624,8 @@ def discordAuthChannel(interaction: discord.Interaction):
     
     return "ไม่อนุญาตให้ใช้ Command ในช่องนี้"
 
+def run_discord_bot():
+    client.run(TOKEN)
 
-client.run(TOKEN)
+if __name__ == '__main__':
+    run_discord_bot()

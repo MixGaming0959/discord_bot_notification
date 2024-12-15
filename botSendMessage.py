@@ -91,12 +91,12 @@ def send_embed(channel_id, data: list):
 # embed as http send response
 def create_embed(data: list):
     result = {
-        "content": "แจ้งเตือนก่อนไลฟ์ 30 นาที",
+        # "content": "แจ้งเตือนก่อนไลฟ์ 30 นาที",
         "embeds": []}
     vtuber_image = db.getVtuber(data[0]["channel_id"])['image']
     for v in data:
         # print(v)
-        title = v["title"]
+        title = v["title"] + " กำลังจะเริ่มไลฟ์ในอีก 30 นาที"
         url = v["url"]
         image = v["image"]
         if type(v["start_at"]) == str:
@@ -143,7 +143,7 @@ def create_embed(data: list):
         result["embeds"].append(embed)
     return result
 
-def loop():
+def run_send_message():
     print("Start Loop")
     while True:
         get_live_videos()
@@ -151,4 +151,4 @@ def loop():
 
 
 if __name__ == "__main__":
-    loop()
+    run_send_message()
