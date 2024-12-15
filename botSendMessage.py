@@ -68,6 +68,7 @@ def get_live_videos():
             if d["channel_id"] == None:
                 continue
             send_embed(d["channel_id"], [r])
+            print(f"Embed sent to {d['channel_id']} for {r['title']}")
 
     return "OK", 200
 
@@ -89,7 +90,9 @@ def send_embed(channel_id, data: list):
 
 # embed as http send response
 def create_embed(data: list):
-    result = {"embeds": []}
+    result = {
+        "content": "แจ้งเตือนก่อนไลฟ์ 30 นาที",
+        "embeds": []}
     vtuber_image = db.getVtuber(data[0]["channel_id"])['image']
     for v in data:
         # print(v)
@@ -144,7 +147,7 @@ def loop():
     print("Start Loop")
     while True:
         get_live_videos()
-        asyncio.run(asyncio.sleep(60 * 10))
+        asyncio.run(asyncio.sleep(60))
 
 
 if __name__ == "__main__":

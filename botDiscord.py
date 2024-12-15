@@ -558,6 +558,51 @@ async def insertVideo(interaction: discord.Interaction, url: str):
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
         return
 
+@client.tree.command(name='set-bot', description="ลงทะเบียนบอทลง Channel นี้")
+@discord.app_commands.choices(
+    options1 = [
+        discord.app_commands.Choice(name = "ใช่", value = 1),
+        discord.app_commands.Choice(name = "ไม่", value = 0),
+    ],
+    options2 = [
+        discord.app_commands.Choice(name = "ชื่อช่อง", value = 0),
+        discord.app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
+        discord.app_commands.Choice(name = "ค่าย", value = 2),
+    ]
+)
+@discord.app_commands.describe(options1="ต้องการใช้บอทแจ้งเตือนไลฟ์ที่ ช่องนี้หรือไม่", options2="ต้องการแจ้งเตือนแบบไหน", name="ชื่อ")
+async def setBot(interaction: discord.Interaction, options1: discord.app_commands.Choice[int], options2: discord.app_commands.Choice[int], name: str):
+    await interaction.response.defer()
+
+    try:
+        channel = str(interaction.channel.id)
+        guild = str(interaction.guild.id)
+        name = name.strip()
+        
+        discord_id = db.checkDiscordServer(guild, channel, options1.value == 1)
+        vtuber, gen, group = {'id': None}, {'id': None}, {'id': None}
+        if options2.value == 0:
+            vtuber = db.getVtuber(name)
+            if vtuber == None:
+                raise ValueError("ไม่พบชื่อช่อง")
+        elif options2.value == 1:
+            gen = db.getGen(name)
+            if gen == None:
+                raise ValueError("ไม่พบชื่อรุ่น/บ้าน")
+        elif options2.value == 2:
+            group = db.getGroup(name)
+            if group == None:
+                raise ValueError("ไม่พบชื่อค่าย")
+
+        db.checkDiscordMapping(discord_id, vtuber, gen, group, options1.value == 1)
+
+        await interaction.followup.send("ลงทะเบียนบอทแจ้งเตือนไลฟ์สําเร็จ")
+    except Exception as e:
+        print(traceback.format_exc())
+        await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
+        return
+
+
 @client.tree.command(name='test', description="สำหรับ Test เท่านั้น")
 async def test(interaction: discord.Interaction, group_name: str):
     await interaction.response.defer()

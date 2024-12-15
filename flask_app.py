@@ -24,6 +24,8 @@ YOUTUBE_API_KEY = load_env("YOUTUBE_API_KEY")
 DISCORD_BOT_TOKEN = load_env("DISCORD_BOT_TOKEN")
 PROCESSED_PAYLOADS = list()
 LIMIT_TIME_LIFE = 20 # Seconds
+ALREADY_LIVE = 60 # minutes
+BEFORE_LIVE = 450 # minutes
 
 # str to bool
 SEND_MSG_WHEN_START = str_to_bool(load_env('SEND_MSG_WHEN_START'))
@@ -81,13 +83,18 @@ def webhooks():
                         return "OK", 200
                 PROCESSED_PAYLOADS.append(target)    
 
-                result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
-                function(video_id, result)
+                Timer(2, wait_result, args=(video_id, channel_id)).start()
             else:
                 print(f"{channel_name} https://youtube.com/watch?v={video_id}; Notification is older than 7 days. Skipping.")
         else:
             print("No valid video or channel ID found in the notification.")
         return "OK", 200
+
+def wait_result(video_id, channel_id):
+    result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
+    # print(db.datetime_gmt(datetime.now()), video_id, channel_id, result)
+    function(video_id, result)
+
 
 # @app.route("api/v1/live_videos", methods=["GET"])
 def get_live_videos():
@@ -144,19 +151,18 @@ def function(video_id:str, result:list, loop:int= 0):
                         vtuber_ids.add(colab['id'])
                         gen_ids.add(colab['gen_id'])
                         group_ids.add(colab['group_id'])
-            live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=60), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
-            upcomming_status = v['live_status'] == "upcomming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=45))
-            discord_details = db.getDiscordDetails(list(vtuber_ids), list(gen_ids), list(group_ids))
-            # print(live_status, upcomming_status)
-            if (live_status or upcomming_status) and SEND_MSG_WHEN_START:
+            live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=ALREADY_LIVE), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
+            upcoming_status = v['live_status'] == "upcoming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=BEFORE_LIVE))
+            # print(live_status, upcoming_status, v['live_status'])
+            if (live_status or upcoming_status) and SEND_MSG_WHEN_START:
+                discord_details = db.getDiscordDetails(list(vtuber_ids), list(gen_ids), list(group_ids))
                 for detail in set(tuple(d.items()) for d in discord_details):
                     dic = dict(detail)
                     send_embed(dic['channel_id'], [v])
             elif SEND_MSG_WHEN_START:
                 loop += 1
                 Timer(5, function, args=(video_id, result, loop)).start()
-                print(f"Start at {v['start_at']} is not live or upcomming. Skipping.")
-                print(f"https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcomming. Skipping.")
+                print(f"Start at {v['start_at']} https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcoming. Skipping.")
     else:
         print(f"https://www.youtube.com/watch?v={video_id} is End. Skipping.")
 
@@ -176,7 +182,7 @@ def truncate_date(date_str: str, date_format="%Y-%m-%dT%H:%M:%S%z") -> datetime:
 
 def parse_datetime(past_timedelta: timedelta, target_date: datetime, future_timedelta: int) -> bool:
     current_time = db.datetime_gmt(datetime.now())
-    # print("parse_datetime", current_time - past_timedelta , target_date ,  current_time + future_timedelta)
+    # print("parse_datetime: ", current_time - past_timedelta , target_date ,  current_time + future_timedelta)
     return current_time - past_timedelta <= target_date and target_date <= current_time + future_timedelta
 
 def parse_notification(notification):
@@ -207,6 +213,7 @@ def parse_notification(notification):
 def insertLiveTable(video_details: list):
     copy = video_details.copy()
     for data in copy:
+        data['is_noti'] = True
         db.checkLiveTable(data)
 
 def send_message(channel_id, message):

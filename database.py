@@ -220,11 +220,79 @@ class DatabaseManager:
             return [dict(zip(['id', 'name', 'group_id', 'image'], row)) for row in result]
         else:
             return None
-        
-    def listDiscordServer(self):
-        query = 'select id, guildid as guild_id, channelid as channel_id, defaultvtuber as default_vtuber, defaultgen, as defaultgen, defaultgroup as default_group from discordserver'
-        result = self.execute_query(query)
-        return [dict(zip(['ID','guild_id', 'channel_id', 'default_vtuber', 'default_gen', 'default_group'], row)) for row in result]
+    
+    def insertDiscordServer(self, data: dict):
+        uuid = gen_uuid()
+        query = f"""
+            insert into discordserver (id, guildid, channelid, is_active)
+            values ('{uuid}', ?, ?, ?);
+        """
+        self.execute_many(
+            query,[(data["guild_id"], data["channel_id"], data["is_active"])],
+        )
+        return uuid
+
+    def updateDiscordServer(self, data: dict):
+        query = f"""
+            update discordserver
+            set is_active = ?
+            where guildid = ? and channelid = ?
+        """
+        self.execute_many(
+            query,[(data["is_active"], data["guild_id"], data["channel_id"])],
+        )
+
+    def checkDiscordServer(self, guild_id: str, channel_id: str, is_active: bool) -> str:
+        query = f"""
+            select id from discordserver
+            where guildid = ? and channelid = ?
+            limit 1;
+        """
+        result = self.execute_query(query, (guild_id, channel_id,))
+        if result:
+            self.updateDiscordServer({"guild_id": guild_id, "channel_id": channel_id, "is_active": is_active})
+            result = [dict(zip(['id'], row)) for row in result]
+            discord_id = str(result[0]['id'])
+        else:
+            discord_id = self.insertDiscordServer({"guild_id": guild_id, "channel_id": channel_id, "is_active": is_active})
+        # return id str
+        return discord_id
+
+    def insertDiscordMapping(self, data: dict):
+        uuid = gen_uuid()
+        query = f"""
+            insert into discord_mapping (id, discord_id, defaultvtuber_id, defaultgen_id, defaultgroup_id, need_notifications)
+            values (?, ?, ?, ?, ?, ?);
+        """
+        self.execute_many(
+            query,[(uuid, data["discord_id"], data["default_vtuber_id"], data["default_gen_id"], data["default_group_id"], data["need_notifications"])],
+        )
+        return uuid
+
+    def updateDiscordMapping(self, data: dict):
+        query = f"""
+            update discord_mapping
+            set defaultvtuber_id = ?, defaultgen_id = ?, defaultgroup_id = ?, need_notifications = ?
+            where discord_id = ?
+        """
+        self.execute_many(
+            query,[(data["default_vtuber_id"], data["default_gen_id"], data["default_group_id"], data["need_notifications"], data["discord_id"])],
+        )
+    
+    def checkDiscordMapping(self, discord_id: str, default_vtuber_id, default_gen_id, default_group_id, need_notifications: bool) -> str:
+        query = f"""
+            select id from discord_mapping
+            where discord_id = ?
+            limit 1;
+        """
+        result = self.execute_query(query, (discord_id,))
+        if result:
+            result = [dict(zip(['id'], row)) for row in result]
+            self.updateDiscordMapping({"discord_id": discord_id, "default_vtuber_id": default_vtuber_id['id'], "default_gen_id": default_gen_id['id'], "default_group_id": default_group_id['id'], "need_notifications": need_notifications})
+            discord_mapping_id = str(result[0]['id'])
+        else:
+            discord_mapping_id = self.insertDiscordMapping({"discord_id": discord_id, "default_vtuber_id": default_vtuber_id['id'], "default_gen_id": default_gen_id['id'], "default_group_id": default_group_id['id'], "need_notifications": need_notifications})
+        return discord_mapping_id
     
     def updateImageVtuber(self, data: dict):
         vtuber = self.getVtuber(data["youtube_tag"])

@@ -184,6 +184,7 @@ class LiveStreamStatus:
             if found:
                 continue
             time_list.add(data["start_at"])
+            old_start_at = data["start_at"]
             isUpcoming = data["live_status"] in ["upcoming", "live"] and data["start_at"] < self.db.datetime_gmt(datetime.now())
             if self.autoCheck and isUpcoming:
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
@@ -204,6 +205,9 @@ class LiveStreamStatus:
                     video_details = data
             else:
                 video_details = data
+            if old_start_at != video_details["start_at"]:
+                print("Update", data["title"], video_details["live_status"])
+                continue
             video_details['title'] = self.truncate_string(video_details['title'], LIMIT_TRUNCATE_STRING)
             result.append(video_details)
 
@@ -445,6 +449,7 @@ class LiveStreamStatus:
         result = []
         # ตรวจสอบว่าเริ่มถ่ายทอดสดหรือยัง
         if video == None:
+            # print("No data")
             return result
         
         for data in video:
@@ -456,7 +461,8 @@ class LiveStreamStatus:
                 continue
 
             time_list.add(data["start_at"])
-            isUpcoming = data["live_status"] in ["upcoming", "live"] and data["start_at"] < self.db.datetime_gmt(datetime.now())
+            old_start_at = data["start_at"]
+            isUpcoming = data["live_status"] in ["upcoming", "live"]
             if self.autoCheck and isUpcoming:
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
                 video_details = await self.get_live_stream_info(video_id, data["channel_id"])
@@ -478,6 +484,15 @@ class LiveStreamStatus:
                     video_details = data
             else:
                 video_details = data
+            new_start_at = video_details["start_at"]
+            # เผื่อมีการอัพเดลเวลา
+            # Before 19.00 - 30 = 18.30 < Now (18.30) < 19.00 + 10 = 19.10 :  pass
+            # After  21.30 - 30 = 21.00 < Now (18.30) < 21.30 + 10 = 21.40 :  continue
+            # After  19.30 - 30 = 19.00 < Now (18.30) < 19.30 + 10 = 19.40 :  continue
+            # print(old_start_at, new_start_at)
+            if old_start_at != new_start_at:
+                # print("Update", data["title"], video_details["live_status"], old_start_at, new_start_at)
+                continue
 
             video_details['is_noti'] = True
             self.db.updateLiveTable(video_details)
