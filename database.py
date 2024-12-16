@@ -1,27 +1,25 @@
 import sqlite3
 from datetime import datetime, timedelta, timezone
-
-from dotenv import load_dotenv # type: ignore
-load_dotenv()
 from os import environ, path
-
 from uuid import uuid4
+from get_env import GetEnv 
 
-def load_env_json(key:str):
-    return environ.get(key)
 def gen_uuid():
-        uuid_str = str(uuid4())
-        varchar_uuid = uuid_str[:36]
-        return varchar_uuid
+    uuid_str = str(uuid4())
+    varchar_uuid = uuid_str[:36]
+    return varchar_uuid
 
 class DatabaseManager:
     def __init__(self, db_name:str):
+        env = GetEnv()
+        self.ALREADY_LIVE = env.get_env_int('ALREADY_LIVE')
+        self.BEFORE_LIVE = env.get_env_int('BEFORE_LIVE')
+        self.GMT = env.get_env_int('GMT')
         # db_path = path.join(path.dirname(__file__), db_name)
         self.db_name = path.join(path.dirname(__file__), db_name)
 
     def datetime_gmt(self, datetime:datetime) -> datetime:
-        gmt = int(load_env_json('GMT'))
-        tz = timezone(timedelta(hours=gmt))
+        tz = timezone(timedelta(hours=self.GMT))
         new_time = datetime.astimezone(tz)
         return new_time
 
@@ -188,8 +186,8 @@ class DatabaseManager:
             return None
         
     def getLiveTable_30(self):
-        dt_past = self.datetime_gmt(datetime.now() - timedelta(minutes=30))
-        dt_future = self.datetime_gmt(datetime.now() + timedelta(minutes=30))
+        dt_past = self.datetime_gmt(datetime.now() - timedelta(minutes=self.BEFORE_LIVE))
+        dt_future = self.datetime_gmt(datetime.now() + timedelta(minutes=self.BEFORE_LIVE))
         query = f"""
             select title, url, startat as start_at, colaborator, 
             vtuber.youtubetag as channel_tag, livetable.image, 
@@ -276,37 +274,37 @@ class DatabaseManager:
     def insertDiscordMapping(self, data: dict):
         uuid = gen_uuid()
         query = f"""
-            insert into discord_mapping (id, discord_id, defaultvtuber_id, defaultgen_id, defaultgroup_id, need_notifications)
+            insert into discord_mapping (id, discord_id, defaultvtuber_id, defaultgen_id, defaultgroup_id, is_NotifyOnLiveStart, Is_PreAlertEnabled)
             values (?, ?, ?, ?, ?, ?);
         """
         self.execute_many(
-            query,[(uuid, data["discord_id"], data["default_vtuber_id"], data["default_gen_id"], data["default_group_id"], data["need_notifications"])],
+            query,[(uuid, data["discord_id"], data["default_vtuber_id"], data["default_gen_id"], data["default_group_id"], data["is_NotifyOnLiveStart"], data["Is_PreAlertEnabled"])],
         )
         return uuid
 
     def updateDiscordMapping(self, data: dict):
         query = f"""
             update discord_mapping
-            set defaultvtuber_id = ?, defaultgen_id = ?, defaultgroup_id = ?, need_notifications = ?
+            set defaultvtuber_id = ?, defaultgen_id = ?, defaultgroup_id = ?, is_NotifyOnLiveStart = ?, Is_PreAlertEnabled = ?
             where discord_id = ?
         """
         self.execute_many(
-            query,[(data["default_vtuber_id"], data["default_gen_id"], data["default_group_id"], data["need_notifications"], data["discord_id"])],
+            query,[(data["default_vtuber_id"], data["default_gen_id"], data["default_group_id"], data["is_NotifyOnLiveStart"], data["Is_PreAlertEnabled"], data["discord_id"])],
         )
     
-    def checkDiscordMapping(self, discord_id: str, default_vtuber_id, default_gen_id, default_group_id, need_notifications: bool) -> str:
+    def checkDiscordMapping(self, data: dict) -> str:
         query = f"""
             select id from discord_mapping
             where discord_id = ?
             limit 1;
         """
-        result = self.execute_query(query, (discord_id,))
+        result = self.execute_query(query, (data["discord_id"],))
         if result:
             result = [dict(zip(['id'], row)) for row in result]
-            self.updateDiscordMapping({"discord_id": discord_id, "default_vtuber_id": default_vtuber_id['id'], "default_gen_id": default_gen_id['id'], "default_group_id": default_group_id['id'], "need_notifications": need_notifications})
+            self.updateDiscordMapping(data)
             discord_mapping_id = str(result[0]['id'])
         else:
-            discord_mapping_id = self.insertDiscordMapping({"discord_id": discord_id, "default_vtuber_id": default_vtuber_id['id'], "default_gen_id": default_gen_id['id'], "default_group_id": default_group_id['id'], "need_notifications": need_notifications})
+            discord_mapping_id = self.insertDiscordMapping(data)
         return discord_mapping_id
     
     def updateImageVtuber(self, data: dict):
@@ -416,9 +414,9 @@ class DatabaseManager:
         """
         query = """
             select 
-                ds.id, ds.guildid as guild_id, ds.channelid as channel_id
+                ds.id, ds.guildid as guild_id, ds.channelid as channel_id, dm.is_NotifyOnLiveStart, dm.is_PreAlertEnabled
             from discordserver ds
-            inner join discord_mapping dm on ds.id = dm.discord_id and ds.is_active = 1 and dm.need_notifications = 1
+            inner join discord_mapping dm on ds.id = dm.discord_id and ds.is_active = 1 and (dm.is_NotifyOnLiveStart = 1 or dm.is_PreAlertEnabled = 1)
         """
         conditions = []
         if vtuber_id:
@@ -434,13 +432,13 @@ class DatabaseManager:
             query += " where " + " or ".join(conditions)
         result = self.execute_query(query)
         if result:
-            return [dict(zip(['id', 'guild_id', 'channel_id'], row)) for row in result]
+            return [dict(zip(['id', 'guild_id', 'channel_id', "is_NotifyOnLiveStart", "is_PreAlertEnabled"], row)) for row in result]
         else:
             return []
         
     def discordAuth(self, discord_id: str, channel_id: str):
         query = f"""
-            select * from discordserver ds where ds.guildid = '{discord_id}' and ds.channelid = '{channel_id}';
+            select * from discordserver ds where ds.guildid = '{discord_id}' and ds.channelid = '{channel_id}' and ds.is_active = 1;
         """
         result = self.execute_query(query)
         if result:

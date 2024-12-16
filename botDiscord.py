@@ -4,15 +4,11 @@ from datetime import datetime, timedelta
 import discord # type: ignore
 from discord.ext import commands  # type: ignore
 from database import DatabaseManager
-from Encrypt import Encrypt
 import fetchData
 
-from dotenv import load_dotenv # type: ignore
-load_dotenv()
-from os import environ
+from get_env import GetEnv
 
-def load_env(key:str):
-    return environ.get(key)
+env = GetEnv()
 
 # Setup
 intents = discord.Intents.default()
@@ -22,21 +18,17 @@ client = commands.Bot(command_prefix='/', intents=intents, reconnect=True)
 def random_color():
     # Generate a random color as an integer value
     return discord.Color(randint(0, 0xFFFFFF))
-def str_to_bool(s:str) -> bool: 
-    return s in ['true', '1', 'yes', 1, True]
 
-db_path = (load_env('DB_PATH'))
+db_path = env.get_env_str('DB_PATH')
 db = DatabaseManager(db_path)
-AUTO_CHECK = str_to_bool(load_env('AUTO_CHECK'))
-ISUPDATE_PATH = (load_env('ISUPDATE_PATH'))
+AUTO_CHECK = env.get_env_str('AUTO_CHECK')
+ISUPDATE_PATH = env.get_env_str('ISUPDATE_PATH')
 MAX_EMBED_SIZE = 4000
 
 liveStreamStatus = fetchData.LiveStreamStatus(db_path, AUTO_CHECK)
 
 def timeNowFunc():
     return liveStreamStatus.db.datetime_gmt(datetime.now())
-
-TOKEN = load_env('DISCORD_BOT_TOKEN')
 
 @client.event
 async def on_ready():
@@ -132,7 +124,7 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
 
                 embedVtuber = discord.Embed(
                     title=v["name"],
-                    description=f"ตารางไลฟ์ ประจำวันที่ {start_at.strftime('%d %B %Y')}",
+                    description=f"ตารางไลฟ์ ประจำวันที่ {start_at.strftime('%d %B %Y')} ของ {v['name']}",
                     color=random_color()
                 )
                 embedVtuber.set_thumbnail(url=v["image"])
@@ -220,7 +212,7 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
             listVtuber = db.listVtuberByGen(gen_name)
             embedVtuber = discord.Embed(
                         title=f"ตารางไลฟ์ ประจำวันที่ {date_obj.strftime('%d %B %Y')} ของ {gen_name}",
-                        # color=random_color(),
+                        color=random_color(),
                     )
             # embedVtuber.set_footer(text=f"Pages: {pageInfo}/{len(data_gen)}")
             embedVtuber.set_thumbnail(url=g['image'])
@@ -236,8 +228,8 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
                     pageInfo += 1
                     embedVtuber = discord.Embed(
                         title=f"ตารางไลฟ์ ประจำวันที่ {date_obj.strftime('%d %B %Y')} ของ {gen_name}",
-                        # color=random_color(),
-                            )
+                        color=random_color(),
+                    )
                     # embedVtuber.set_footer(text=f"Pages: {pageInfo}/{len(data_gen)}")
                     embedVtuber.set_thumbnail(url=g['image'])
                 # print(f"Gen: {gen_name}, Vtuber: {v['Name']}")
@@ -566,42 +558,61 @@ async def insertVideo(interaction: discord.Interaction, url: str):
         discord.app_commands.Choice(name = "ค่าย", value = 2),
     ]
 )
-@discord.app_commands.describe(options1="เปิดให้ใช้งานคำสั่งที่ช่องนี้ใช่หรือไม่", options2="ต้องการแจ้งเตือนแบบไหน", name="ชื่อ", options3="เปิดแจ้งเตือนที่ช่องนี้ใช่หรือไม่")
-async def setBot(interaction: discord.Interaction, options1: bool, options2: discord.app_commands.Choice[int], name: str="", options3: bool=True):
+@discord.app_commands.describe(options1="เปิดให้ใช้งานคำสั่งที่ช่องนี้ใช่หรือไม่", options2="ต้องการแจ้งเตือนแบบไหน", name="ชื่อ", options3="เปิดแจ้งเตือนตอนเริ่มไลฟ์ที่ช่องนี้ใช่หรือไม่", options4="เปิดแจ้งเตือนก่อนเริ่มไลฟ์ที่ช่องนี้ใช่หรือไม่")
+async def setBot(interaction: discord.Interaction, options1: bool, options2: discord.app_commands.Choice[int], name: str, options3: bool=False, options4: bool=False):
     await interaction.response.defer()
-
+    keyOption = {
+        True: "เปิด",
+        False: "ปิด"
+    }
     try:
         channel = str(interaction.channel.id)
         guild = str(interaction.guild.id)
         name = name.strip()
         
         discord_id = db.checkDiscordServer(guild, channel, options1)
-        result_txt = "ลงทะเบียนบอทแจ้งเตือนไลฟ์"
-        if name != "":
-            vtuber, gen, group = {'id': None}, {'id': None}, {'id': None}
-            if options2.value == 0:
-                vtuber = db.getVtuber(name)
-                if vtuber == None:
-                    raise ValueError("ไม่พบชื่อช่อง")
-                name = vtuber['name']
-            elif options2.value == 1:
-                gen = db.getGen(name)
-                if gen == None:
-                    raise ValueError("ไม่พบชื่อรุ่น/บ้าน")
-                name = gen['name']
-            elif options2.value == 2:
-                group = db.getGroup(name)
-                if group == None:
-                    raise ValueError("ไม่พบชื่อค่าย")
-                name = group['name']
+        embed = discord.Embed(
+            title = "ลงทะเบียนบอทแจ้งเตือนไลฟ์",
+            description = "ข้อมูลที่ลงทะเบียน",
+            color=random_color(),
+        )
 
-            db.checkDiscordMapping(discord_id, vtuber, gen, group, options3)
-            if options3:
-                result_txt += f" และ เปิดการแจ้งเตือนของ {name} เรียบร้อยแล้ว"
-            else:
-                result_txt += f" และ ปิดการแจ้งเตือนของ {name} เรียบร้อยแล้ว"
+        vtuber, gen, group = {'id': None}, {'id': None}, {'id': None}
+        if options2.value == 0:
+            vtuber = db.getVtuber(name)
+            if vtuber == None:
+                raise ValueError("ไม่พบชื่อช่อง")
+            name = vtuber['name']
+        elif options2.value == 1:
+            gen = db.getGen(name)
+            if gen == None:
+                raise ValueError("ไม่พบชื่อรุ่น/บ้าน")
+            name = gen['name']
+        elif options2.value == 2:
+            group = db.getGroup(name)
+            if group == None:
+                raise ValueError("ไม่พบชื่อค่าย")
+            name = group['name']
+        else:
+            raise ValueError("ตัวเลือกไม่ถูกต้อง")
+        
+        data = {
+            "discord_id": discord_id, 
+            "default_vtuber_id": vtuber['id'], 
+            "default_gen_id": gen['id'], 
+            "default_group_id": group['id'], 
+            "is_NotifyOnLiveStart": options3, 
+            "Is_PreAlertEnabled": options4
+        }
+        db.checkDiscordMapping(data)
 
-        await interaction.followup.send(result_txt)
+        embed.add_field(name="ใช้งานบอท", value=keyOption[options1], inline=True)
+        embed.add_field(name=options2.name, value=name, inline=False)
+        embed.add_field(name="ใช้งานแจ้งเตือน", value=keyOption[options3], inline=True)
+        embed.add_field(name="ใช้งานแจ้งเตือนก่อนเริ่มไลฟ์", value=keyOption[options4], inline=False)
+
+        await interaction.followup.send(embed=embed)
+
     except Exception as e:
         print(traceback.format_exc())
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
@@ -617,7 +628,7 @@ async def test(interaction: discord.Interaction, group_name: str):
         await interaction.followup.send(txt)
         return
     
-    await interaction.followup.send(f"สำหรับ Test เท่านั้น")
+    await interaction.followup.send(f"{group_name} สำหรับ Test เท่านั้น")
     return
 
 def discordAuthChannel(interaction: discord.Interaction):
@@ -629,8 +640,8 @@ def discordAuthChannel(interaction: discord.Interaction):
     
     return "ไม่อนุญาตให้ใช้ Command ในช่องนี้"
 
-def run_discord_bot():
-    client.run(TOKEN)
+def run_discord_bot(token: str):
+    client.run(token)
 
-if __name__ == '__main__':
-    run_discord_bot()
+# if __name__ == '__main__':
+#     run_discord_bot()

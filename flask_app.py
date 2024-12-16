@@ -3,40 +3,31 @@ from threading import Timer
 from flask import Flask, request  # type: ignore
 import requests # type: ignore
 import xml.etree.ElementTree as ET
-from dotenv import load_dotenv  # type: ignore
-from os import environ
+from get_env import GetEnv  # type: ignore
 
 import asyncio
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-load_dotenv()
-def load_env(key:str):
-    return environ.get(key)
-def str_to_bool(s:str) -> bool: 
-    return s in ['true', '1', 'yes', 1, True]
-
+env = GetEnv()
 # Constants
-WEBHOOK_URL = load_env("WEBHOOK_URL")
-WEBHOOK_PORT = load_env("WEBHOOK_PORT")
-PUBSUBHUBBUB_URL = load_env("PUBSUBHUBBUB_URL")
-YOUTUBE_API_KEY = load_env("YOUTUBE_API_KEY")
-DISCORD_BOT_TOKEN = load_env("DISCORD_BOT_TOKEN")
-LIMIT_TIME_LIFE = 20 # Seconds
-ALREADY_LIVE = 60 # minutes
-BEFORE_LIVE = 35 # minutes
+WEBHOOK_URL = env.webhook_url_env()
+WEBHOOK_PORT = env.webhook_port_env()
+YOUTUBE_API_KEY = env.youtube_api_key_env()
+DISCORD_BOT_TOKEN = env.discord_token_env()
 
+LIMIT_TIME_LIFE = 20 # Seconds
 PROCESSED_PAYLOADS = list()
 
 # str to bool
-SEND_MSG_WHEN_START = str_to_bool(load_env('SEND_MSG_WHEN_START'))
+SEND_MSG_WHEN_START = env.get_env_bool('SEND_MSG_WHEN_START')
 # Database
 from database import DatabaseManager
 
-db_path = load_env('DB_PATH')
+db_path = env.get_env_str('DB_PATH')
 db = DatabaseManager(db_path)
-AUTO_CHECK = int(load_env('AUTO_CHECK') or 0)
-ISUPDATE_PATH = load_env('ISUPDATE_PATH')
+AUTO_CHECK = env.get_env_int('AUTO_CHECK')
+ISUPDATE_PATH = env.get_env_str('ISUPDATE_PATH')
 MAX_EMBED_SIZE = 4000
 
 # FetchData
@@ -117,14 +108,17 @@ def function(video_id:str, result:list, loop:int= 0):
                         vtuber_ids.add(colab['id'])
                         gen_ids.add(colab['gen_id'])
                         group_ids.add(colab['group_id'])
-            live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=ALREADY_LIVE), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
-            upcoming_status = v['live_status'] == "upcoming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=BEFORE_LIVE))
+            live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=60), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
+            upcoming_status = v['live_status'] == "upcoming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=30))
 
             if (live_status or upcoming_status) and SEND_MSG_WHEN_START:
                 discord_details = db.getDiscordDetails(list(vtuber_ids), list(gen_ids), list(group_ids))
                 for detail in set(tuple(d.items()) for d in discord_details):
                     dic = dict(detail)
-                    if ['live_status'] == "live" and v['start_at'] < timeNow:
+                    if dic['is_NotifyOnLiveStart'] == 0:
+                        continue
+                    
+                    if v['live_status'] == "live" or v['start_at'] < timeNow:
                         v['start_at'] = timeNow
                     send_embed(dic['channel_id'], [v])
             elif SEND_MSG_WHEN_START:
@@ -221,7 +215,7 @@ def create_embed(data: list):
     vtuber_image = db.getVtuber(data[0]["channel_id"])['image']
     for v in data:
         # print(v)
-        title = v["title"]
+        title = v["title"] + " กำลังไลฟ์"
         url = v["url"]
         image = v["image"]
         if type(v["start_at"]) == str:
@@ -238,16 +232,17 @@ def create_embed(data: list):
         
         embed = {
             "title": channel_name,
-            "description": f"ตารางไลฟ์ ประจำวันที่ {v['start_at'].strftime('%d %B %Y')}", # 10 December 2024
+            # "description": f"ตารางไลฟ์ ประจำวันที่ {v['start_at'].strftime('%d %B %Y')}", # 10 December 2024
+            "description": f"{title} [Link]({url})", # 10 December 2024
             "color": random_color(),
             "thumbnail": {"url": vtuber_image},
             "image": {"url": image},
             "fields": [
-                {
-                    "name": "ชื่อไลฟ์",
-                    "value": f"{title} [Link]({url})",
-                    "inline": False,
-                },
+                # {
+                #     "name": "ชื่อไลฟ์",
+                #     "value": f"{title} [Link]({url})",
+                #     "inline": False,
+                # },
                 {
                     "name": "เวลาไลฟ์",
                     "value": f"{start_at} น.",

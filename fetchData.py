@@ -5,28 +5,24 @@ import textwrap
 from database import DatabaseManager
 from googleapiclient.discovery import build  # type: ignore
 from googleapiclient.errors import HttpError  # type: ignore
+from get_env import GetEnv  # type: ignore
 
-
-# ใส่ API Key ที่สร้างไว้
-from dotenv import load_dotenv  # type: ignore
-
-load_dotenv()
-from os import environ
-from Encrypt import Encrypt
-
-api_key = environ.get("YOUTUBE_API_KEY")
-TIME_ERROR = timedelta(minutes=30)
-LIMIT_TRUNCATE_STRING = 100
 
 class LiveStreamStatus:
     def __init__(self, db_path: str, autoCheck: bool = False):
         self.db = DatabaseManager(db_path)
         self.autoCheck = autoCheck
 
+        env = GetEnv()
+
+        self.api_key = env.youtube_api_key_env()
+        self.TIME_ERROR = timedelta(minutes=30)
+        self.LIMIT_TRUNCATE_STRING = 100
+
     async def get_live_stream_info(self, video_ids: str, channel_id: str):
         vtuber = self.db.getVtuber(channel_id)
         try:
-            youtube = build("youtube", "v3", developerKey=api_key)
+            youtube = build("youtube", "v3", developerKey=self.api_key)
 
             # ขอข้อมูลของวิดีโอที่กำหนด
             request = youtube.videos().list(
@@ -196,7 +192,7 @@ class LiveStreamStatus:
             data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
             found = False
             for i in time_list:
-                if data["start_at"] - TIME_ERROR <= i <= data["start_at"] + TIME_ERROR and data['colaborator'] != None:
+                if data["start_at"] - self.TIME_ERROR <= i <= data["start_at"] + self.TIME_ERROR and data['colaborator'] != None:
                     found = True
                     break
             if found:
@@ -227,7 +223,7 @@ class LiveStreamStatus:
             if old_start_at != video_details["start_at"]:
                 print("Update", data["title"], video_details["live_status"])
                 continue
-            video_details['title'] = self.truncate_string(video_details['title'], LIMIT_TRUNCATE_STRING)
+            video_details['title'] = self.truncate_string(video_details['title'], self.LIMIT_TRUNCATE_STRING)
             result.append(video_details)
 
         return result
@@ -253,7 +249,7 @@ class LiveStreamStatus:
 
             found = False
             for i in time_list:
-                if data["start_at"] - TIME_ERROR <= i <= data["start_at"] + TIME_ERROR:
+                if data["start_at"] - self.TIME_ERROR <= i <= data["start_at"] + self.TIME_ERROR:
                     found = True
                     break
             if found:
@@ -280,7 +276,7 @@ class LiveStreamStatus:
         channel = self.db.getVtuber(username)
         if channel != None:
             raise ValueError(f"ชื่อ {channel['name']} มีอยู่แล้วในฐานข้อมูล...")
-        youtube = build("youtube", "v3", developerKey=api_key)
+        youtube = build("youtube", "v3", developerKey=self.api_key)
 
         request = youtube.search().list(
             part="snippet",
@@ -324,7 +320,7 @@ class LiveStreamStatus:
         raise ValueError(f"ไม่พบช่องที่เกี่ยวข้องกับ {username}")
     
     def get_channel_tag(self, channel_id:str):
-        youtube = build('youtube', 'v3', developerKey=api_key)
+        youtube = build('youtube', 'v3', developerKey=self.api_key)
 
         # ขอข้อมูล channel โดยใช้ part brandingSettings
         request = youtube.channels().list(
@@ -375,7 +371,7 @@ class LiveStreamStatus:
 
     def get_channel_info(self, channel_id:str):
         try: 
-            youtube = build("youtube", "v3", developerKey=api_key)
+            youtube = build("youtube", "v3", developerKey=self.api_key)
             request = youtube.channels().list(
                 part="snippet,contentDetails",
                 id=channel_id
@@ -405,7 +401,7 @@ class LiveStreamStatus:
     def get_playlist_item(self, playlist_id:str, channel_id:str):
         try:
             member_playlist = "UUMO" + channel_id[2:]
-            youtube = build("youtube", "v3", developerKey=api_key)
+            youtube = build("youtube", "v3", developerKey=self.api_key)
             request = youtube.playlistItems().list(
                 part="contentDetails",
                 playlistId=playlist_id,
@@ -459,7 +455,7 @@ class LiveStreamStatus:
 
         return result_video_id
 
-    async def get_live_stream_30(self):
+    async def get_before_live_stream(self):
         video = self.db.getLiveTable_30()
 
         # เก็บเวลาไลฟ์ แบบ list
@@ -508,15 +504,15 @@ class LiveStreamStatus:
             # Before 19.00 - 30 = 18.30 < Now (18.30) < 19.00 + 10 = 19.10 :  pass
             # After  21.30 - 30 = 21.00 < Now (18.30) < 21.30 + 10 = 21.40 :  continue
             # After  19.30 - 30 = 19.00 < Now (18.30) < 19.30 + 10 = 19.40 :  continue
-            # print(old_start_at, new_start_at)
-            if old_start_at != new_start_at:
+            print(old_start_at, new_start_at, data["live_status"], video_details["live_status"])
+            if old_start_at != new_start_at or data["live_status"] != video_details["live_status"] or video_details["live_status"] == 'live':
                 # print("Update", data["title"], video_details["live_status"], old_start_at, new_start_at)
                 continue
 
             video_details['is_noti'] = True
             self.db.updateLiveTable(video_details)
 
-            video_details['title'] = self.truncate_string(video_details['title'], LIMIT_TRUNCATE_STRING)
+            video_details['title'] = self.truncate_string(video_details['title'], self.LIMIT_TRUNCATE_STRING)
             result.append(video_details)
 
         return result
@@ -538,7 +534,7 @@ if __name__ == "__main__":
     # x = (lv.get_channel_tag("UCGo7fnmWfGQewxZVDmC3iJQ"))
     # print(x)
 
-    x = asyncio.run(lv.get_live_stream_30())
+    x = asyncio.run(lv.get_before_live_stream())
     for i in x:
         print(i['title'])
 

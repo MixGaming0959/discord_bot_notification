@@ -3,22 +3,15 @@ from datetime import datetime, timedelta
 
 from fetchData import LiveStreamStatus
 
-from dotenv import load_dotenv # type: ignore
-load_dotenv()
-from os import environ
+from get_env import GetEnv 
 
-def load_env_json(key:str):
-    return environ.get(key)
-
-def str_to_bool(s:str) -> bool: 
-    return s in ['true', '1', 'yes', 1, True]
-
+env = GetEnv()
 
 # ฟังก์ชันสำหรับอัปเดตข้อมูลการสตรีม
 async def update_live_table():
-    DB_PATH = (load_env_json('DB_PATH'))
-    ISUPDATE_PATH = (load_env_json('ISUPDATE_PATH'))
-    live = LiveStreamStatus(DB_PATH, str_to_bool(load_env_json('AUTO_CHECK')))
+    DB_PATH = env.get_env_str('DB_PATH')
+    ISUPDATE_PATH = env.get_env_str('ISUPDATE_PATH')
+    live = LiveStreamStatus(DB_PATH, env.get_env_bool('AUTO_CHECK'))
 
     date_format = "%Y-%m-%d %H:%M:%S%z"
     while True:
