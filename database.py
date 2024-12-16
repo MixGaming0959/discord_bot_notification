@@ -105,7 +105,7 @@ class DatabaseManager:
     def checkLiveTable(self, data: dict):
         query = """
             select 
-                title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id
+                title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id, livetable.isnoti as is_noti
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
             where url = ?
@@ -114,7 +114,7 @@ class DatabaseManager:
         """
 
         result = self.execute_query(query, (data["url"],))
-        result = [dict(zip(['title', 'url', 'start_at', 'colaborator', 'channel_tag', 'image', 'vtuber_id', 'live_status', 'channel_id'], row)) for row in result]
+        result = [dict(zip(['title', 'url', 'start_at', 'colaborator', 'channel_tag', 'image', 'vtuber_id', 'live_status', 'channel_id', 'is_noti'], row)) for row in result]
         if len(result) == 0:
             self.insertLiveTable(data)
             # print("Insert Live Table Success")
@@ -152,9 +152,24 @@ class DatabaseManager:
             query,[(data["title"], data["url"], data["start_at"], data["colaborator"], data["image"], data['live_status'], isNoti, data["url"])],
         )
     
-    def getLiveTable(self, channelTag: dict):
+    def getLiveTablebyURL(self, url: list):
+        conditon = ",".join(["'https://www.youtube.com/watch?v={}'".format(x) for x in url])
         query = f"""
-            select title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id
+            select title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id, livetable.isnoti as is_noti
+            from livetable
+            inner join vtuber on livetable.vtuberid = vtuber.id
+            where url in ({conditon})
+            order by start_at asc;
+        """
+        result = self.execute_query(query)
+        if result:
+            return [dict(zip(['title', 'url', 'start_at', 'colaborator', 'channel_tag', 'image', 'vtuber_id', 'live_status', 'channel_id', 'is_noti'], row)) for row in result]
+        else:
+            return []
+
+    def getLiveTable(self, channelTag: str):
+        query = f"""
+            select title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id, livetable.isnoti as is_noti
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
             where (colaborator like '%{channelTag}%' or vtuber.youtubetag like '{channelTag}') and livetable.livestatus != 'none'
@@ -168,7 +183,7 @@ class DatabaseManager:
         """
         result = self.execute_query(query)
         if result:
-            return [dict(zip(['title', 'url', 'start_at', 'colaborator', 'channel_tag', 'image', 'vtuber_id', 'live_status', 'channel_id'], row)) for row in result]
+            return [dict(zip(['title', 'url', 'start_at', 'colaborator', 'channel_tag', 'image', 'vtuber_id', 'live_status', 'channel_id', 'is_noti'], row)) for row in result]
         else:
             return None
         

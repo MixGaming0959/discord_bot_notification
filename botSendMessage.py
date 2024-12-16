@@ -68,7 +68,7 @@ def get_live_videos():
             if d["channel_id"] == None:
                 continue
             send_embed(d["channel_id"], [r])
-            print(f"Embed sent to {d['channel_id']} for {r['title']}")
+            # print(f"Embed sent to {d['channel_id']} for {r['title']}")
 
     return "OK", 200
 
@@ -83,9 +83,9 @@ def send_embed(channel_id, data: list):
     embeds = create_embed(data)
     response = requests_post(url, headers=headers, json=embeds)
     if response.status_code == 200:
-        print("Embed sent successfully.")
+        print("BotSendMSG: Embed sent successfully.")
     else:
-        print(f"Failed to send embed. Status code: {response.status_code}")
+        print(f"BotSendMSG: Failed to send embed. Status code: {response.status_code}")
 
 
 # embed as http send response
@@ -144,7 +144,7 @@ def create_embed(data: list):
     return result
 
 def run_send_message():
-    print("Start Loop")
+    print("BotSendMSG: Start Loop")
     while True:
         get_live_videos()
         asyncio.run(asyncio.sleep(60))

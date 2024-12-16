@@ -45,6 +45,10 @@ class LiveStreamStatus:
             return None
         result = []
         lis_video_id = video_ids.split(",")
+        video_in_db = {}
+        for v in self.db.getLiveTablebyURL(lis_video_id):
+            video_in_db[v['url']] = v
+
         if "items" in response and response["items"]:
             for item in response["items"]:
                 snippet = item["snippet"]
@@ -52,7 +56,7 @@ class LiveStreamStatus:
                 video_id = item["id"]
                 title = snippet["title"]
                 url = f"https://www.youtube.com/watch?v={video_id}"
-                channel_tag = vtuber["channel_tag"]
+                # print(video_in_db[url])
                 # title contains "Birthday"
                 if live_status == "none" and "Birthday" not in title:
                     # print(f"Channel {channel_tag} Url: {url} is not live")
@@ -79,6 +83,7 @@ class LiveStreamStatus:
                         url, "unknown"
                     )
 
+
                 if "maxres" in snippet["thumbnails"]:
                     image = snippet["thumbnails"]["maxres"]["url"]
                 elif "high" in snippet["thumbnails"]:
@@ -89,24 +94,8 @@ class LiveStreamStatus:
                     image = snippet["thumbnails"]["default"]["url"]
                 live_status = snippet["liveBroadcastContent"]
                 channel_name = snippet["channelTitle"]
-
-                colaborator = None
-                if "@" in title:
-                    tmp = title[title.strip().index("@") :]
-                    colaborator = ",".join(tmp.split("@")[1:])
-                elif "ft." in title.lower():
-                    tmp = title.lower()
-                    tmp = title[tmp.strip().index("ft.") + 3 :]
-                    colaborator = ""
-                    for i in tmp.split(","):
-                        if i.strip() == "":
-                            continue
-                        name = self.db.getVtuber(i.strip())
-                        if name == None:
-                            colaborator += f"{i.strip()},"
-                        else:
-                            colaborator += f"{name['channel_tag']},"
-                    colaborator = colaborator[:-1]
+                    
+                colaborator = self.set_collaborator(title=title)
 
                 data = {
                     "title": title,
@@ -119,6 +108,7 @@ class LiveStreamStatus:
                     "channel_name": channel_name,
                     "channel_tag": vtuber["channel_tag"],
                     "channel_id": channel_id,
+                    "is_noti": video_in_db[url]["is_noti"] if url in video_in_db else False,
                 }
 
                 # ตรวจสอบเวลาเริ่มและสถานะการถ่ายทอดสด
@@ -147,6 +137,14 @@ class LiveStreamStatus:
                     data["start_at"] = start_at
                     # print("Live scheduled to start 2:", data["start_at"])
 
+
+                if url in video_in_db:
+                    if (data["title"] != video_in_db[url]["title"]
+                    or data["image"] != video_in_db[url]["image"]
+                    or data["start_at"] != video_in_db[url]["start_at"]
+                    or data["live_status"] != video_in_db[url]["live_status"]):
+                        data["is_noti"] = False
+
                 lis_video_id.remove(video_id)
                 result.append(data)
 
@@ -158,6 +156,26 @@ class LiveStreamStatus:
             print(vtuber["name"], f"https://www.youtube.com/watch?v={video_id}", "cancelled")
        
         return result
+    
+    def set_collaborator(self, title: str):
+        colaborator = None
+        if "@" in title:
+            tmp = title[title.strip().index("@") :]
+            colaborator = ",".join(tmp.split("@")[1:])
+        elif "ft." in title.lower():
+            tmp = title.lower()
+            tmp = title[tmp.strip().index("ft.") + 3 :]
+            colaborator = ""
+            for i in tmp.split(","):
+                if i.strip() == "":
+                    continue
+                name = self.db.getVtuber(i.strip())
+                if name == None:
+                    colaborator += f"{i.strip()},"
+                else:
+                    colaborator += f"{name['channel_tag']},"
+            colaborator = colaborator[:-1]
+        return colaborator
 
     def set_channel_id(self, channel_id: str):
         self.channel_id = channel_id
@@ -192,7 +210,7 @@ class LiveStreamStatus:
                 if video_details == None or len(video_details) == 0:
                     continue
                 video_details = video_details[0]
-
+                # print("1 is_noti", data['is_noti'], video_details['is_noti'])
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
                 if (
                     data["title"] != video_details["title"]
@@ -204,6 +222,7 @@ class LiveStreamStatus:
                 else:
                     video_details = data
             else:
+                # print("2 is_noti", data['is_noti'], video_details['is_noti'])
                 video_details = data
             if old_start_at != video_details["start_at"]:
                 print("Update", data["title"], video_details["live_status"])
@@ -323,16 +342,16 @@ class LiveStreamStatus:
 
     async def live_stream_status(self, channel_id:str):
         try:
-            playlist_id = self.get_channel_info(channel_id)
-            if playlist_id == None:
-                raise ValueError("Cannot get channel info")
-            # print(playlist_id)
+            # playlist_id = self.get_channel_info(channel_id)
+            # if playlist_id == None:
+            #     raise ValueError("Cannot get channel info")
+            playlist_id = "UU" + channel_id[2:]
+
             lis_video_id = self.get_playlist_item(playlist_id, channel_id)
             if lis_video_id == None:
                 raise ValueError("Cannot get playlist item")
             
             if len(lis_video_id) == 0:
-                # print("No live or upcoming broadcasts found.")
                 return None, None
 
             video_details = await self.get_live_stream_info(",".join(lis_video_id), channel_id)
@@ -340,11 +359,11 @@ class LiveStreamStatus:
                 raise ValueError("Cannot get live stream info")
 
             if len(video_details) == 0:
-                # print("No live or upcoming broadcasts found.")
                 return None, None
 
             for data in video_details:
                 self.db.checkLiveTable(data)
+
             return video_details, None
         except HttpError as e:
             error_reason = (
