@@ -1,6 +1,6 @@
 from random import randint
 from threading import Timer
-from flask import Flask, request  # type: ignore
+# from flask import Flask, request  # type: ignore
 import requests # type: ignore
 import xml.etree.ElementTree as ET
 from get_env import GetEnv  # type: ignore
@@ -8,7 +8,10 @@ from get_env import GetEnv  # type: ignore
 import asyncio
 from datetime import datetime, timedelta
 
-app = Flask(__name__)
+from bottle import Bottle, request, response
+
+app = Bottle()
+
 env = GetEnv()
 # Constants
 WEBHOOK_URL = env.webhook_url_env()
@@ -34,18 +37,19 @@ MAX_EMBED_SIZE = 4000
 from fetchData import LiveStreamStatus
 liveStreamStatus = LiveStreamStatus(db_path, AUTO_CHECK)
 
-@app.route("/api/v1/webhooks", methods=["GET", "POST"])
+@app.route('/api/v1/webhooks', method=['GET', 'POST'])
 def webhooks():
-    if request.method == "GET":
+    if request.method == 'GET':
         # Verification
-        hub_challenge = request.args.get("hub.challenge")
+        hub_challenge = request.query.get('hub.challenge')
         if hub_challenge:
-            return hub_challenge, 200
-        return "Invalid request", 400
+            return hub_challenge
+        response.status = 400
+        return "Invalid request"
 
-    elif request.method == "POST":
+    elif request.method == 'POST':
         # Handle notifications
-        notification = request.data
+        notification = request.body.read()  # อ่านข้อมูลจาก POST Request
         # print("Raw notification received:", notification.decode("utf-8"))
 
         # Parse notification for channel ID and video ID
@@ -69,16 +73,16 @@ def webhooks():
                 # Check
                 for recent in PROCESSED_PAYLOADS:
                     if recent["video_id"] == video_id and recent["channel_id"] == channel_id and parse_datetime(timedelta(seconds=LIMIT_TIME_LIFE), recent["timestamp"], timedelta(seconds=LIMIT_TIME_LIFE)):
-                        print(f"FlaskApp: https://youtube.com/watch?v={video_id} is already processed. Skipping.")
-                        return "OK", 200
+                        print(f"WebhookApp: https://youtube.com/watch?v={video_id} is already processed. Skipping.")
+                        return "OK"
                 PROCESSED_PAYLOADS.append(target)    
 
                 Timer(20, wait_result, args=(video_id, channel_id)).start()
             else:
-                print(f"FlaskApp: {channel_name} https://youtube.com/watch?v={video_id}; Notification is older than 7 days. Skipping.")
+                print(f"WebhookApp: {channel_name} https://youtube.com/watch?v={video_id}; Notification is older than 7 days. Skipping.")
         else:
-            print("FlaskApp: No valid video or channel ID found in the notification.")
-        return "OK", 200
+            print("WebhookApp: No valid video or channel ID found in the notification.")
+        return "OK"
 
 def wait_result(video_id, channel_id):
     result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
@@ -94,7 +98,7 @@ def function(video_id:str, result:list, loop:int= 0):
             vtuber_ids = set()
             gen_ids = set()
             group_ids = set()
-            print(f"FlaskApp: Start at {v['start_at']} https://youtube.com/watch?v={video_id} is live or upcoming.")
+            print(f"WebhookApp: Start at {v['start_at']} https://youtube.com/watch?v={video_id} is live or upcoming.")
             if type(v['start_at']) == str:
                 v['start_at'] = db.datetime_gmt(datetime.fromisoformat(v['start_at']))
             vtuber = db.getVtuber(v['channel_tag'])
@@ -124,9 +128,9 @@ def function(video_id:str, result:list, loop:int= 0):
             elif SEND_MSG_WHEN_START:
                 loop += 1
                 Timer(5, function, args=(video_id, result, loop)).start()
-                print(f"FlaskApp: Start at {v['start_at']} https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcoming. Skipping.")
+                print(f"WebhookApp: Start at {v['start_at']} https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcoming. Skipping.")
     else:
-        print(f"FlaskApp: https://www.youtube.com/watch?v={video_id} is End. Skipping.")
+        print(f"WebhookApp: https://www.youtube.com/watch?v={video_id} is End. Skipping.")
 
 async def wait_for_notification():
     await asyncio.sleep(1)
@@ -167,9 +171,9 @@ def parse_notification(notification):
             channel_name = channel_name.text
             return video_id, channel_id, updated, channel_name
         else:
-            print("FlaskApp: Raw notification received:", notification.decode("utf-8"))
+            print("WebhookApp: Raw notification received:", notification.decode("utf-8"))
     except Exception as e:
-        print(f"FlaskApp: Error parsing notification: {e}")
+        print(f"WebhookApp: Error parsing notification: {e}")
     return None, None, None, None
 
 def insertLiveTable(video_details: list):
@@ -188,12 +192,14 @@ def send_message(channel_id, message):
     data = {"content": message}
     response = requests.post(url, headers=headers, json=data)
     if response.status_code == 200:
-        print("FlaskApp: Message sent successfully.")
+        print("WebhookApp: Message sent successfully.")
+        return {"status": "success", "message": "Message sent successfully"}
     else:
-        print(f"FlaskApp: Failed to send message. Status code: {response.status_code}")
+        print(f"WebhookApp: Failed to send message. Status code: {response.status_code}")
+        return {"status": "failed", "message": f"Error: {response.status_code}"}
 
 
-def send_embed(channel_id, data: list):
+def send_embed(channel_id: str, data: list):
     """Send an embed to a channel."""
     url = f"https://discord.com/api/v9/channels/{channel_id}/messages"
     headers = {
@@ -204,10 +210,11 @@ def send_embed(channel_id, data: list):
     embeds = create_embed(data)
     response = requests.post(url, headers=headers, json=embeds)
     if response.status_code == 200:
-        print("FlaskApp: Embed sent successfully.")
+        print("WebhookApp: successfully.")
+        return {"status": "success", "message": "Embed sent successfully"}
     else:
-        print(f"FlaskApp: Failed to send embed. Status code: {response.status_code}")
-
+        print(f"WebhookApp: Failed. Status code: {response.status_code}")
+        return {"status": "failed", "message": f"Error: {response.status_code}"}
 
 # embed as http send response
 def create_embed(data: list):

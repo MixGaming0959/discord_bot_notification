@@ -363,13 +363,23 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
         name = name.strip()
         if options.value == 0:
             listVtuber = [db.getVtuber(name)]
-            name = listVtuber[0]['name']
+            if listVtuber[0]['name'] != None:
+                name = listVtuber[0]['name']
+            else:
+                raise "ไม่พบชื่อช่องที่ค้นหา"
         elif options.value == 1:
             listVtuber = db.listVtuberByGen(name)
-            name = listVtuber[0]['gen_name']
+            if listVtuber[0]['gen_name'] != None:
+                name = listVtuber[0]['gen_name']
+            else:
+                raise "ไม่พบรุ่น/บ้านที่ค้นหา"
         elif options.value == 2:
             listVtuber = db.listVtuberByGroup(name)
-            name = listVtuber[0]['group_name']
+            if listVtuber[0]['group_name'] != None:
+                name = listVtuber[0]['group_name']
+            else:
+                raise "ไม่พบค่ายที่ค้นหา"
+        
         # if len(listVtuber) > 1:
         #     date_format = "%Y-%m-%d %H:%M:%S%z"
             
@@ -508,7 +518,7 @@ class Paginator(discord.ui.View):
 
 @client.tree.command(name='insert-new-channel', description="สร้างช่องใหม่ ถ้าเป็นอิสระก็ให้ว่างช่องรุ่น คำเตือนอย่าใช่บ่อยเกินไป !!!")
 @discord.app_commands.describe(username="ชื่อช่องเต็มเท่านั้น", gen_name="ชื่อรุ่น/บ้านเต็มเท่านั้น", group_name="ชื่อค่ายเต็มเท่านั้น")
-async def insertNewChannel(interaction: discord.Interaction, username: str, gen_name: str="Independence", group_name: str="Independence"):
+async def insertNewChannel(interaction: discord.Interaction, username: str, gen_name: str=None, group_name: str=None):
     await interaction.response.defer()
     try:
         txt = discordAuthChannel(interaction)

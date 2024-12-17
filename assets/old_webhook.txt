@@ -1,1 +1,1 @@
-https://7528-58-8-177-99.ngrok-free.app/api/v1/webhooks
+https://74ae-58-8-177-99.ngrok-free.app/api/v1/webhooks

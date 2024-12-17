@@ -272,7 +272,7 @@ class LiveStreamStatus:
                     self.db.updateLiveTable(video_details)
         return f"อัพเดทข้อมูลตาราง {channel_tag} สําเร็จ..."
 
-    def insert_channel(self, username, gen_name, group_name):
+    def insert_channel(self, username: str, gen_name, group_name):
         channel = self.db.getVtuber(username)
         if channel != None:
             raise ValueError(f"ชื่อ {channel['name']} มีอยู่แล้วในฐานข้อมูล...")
@@ -348,6 +348,7 @@ class LiveStreamStatus:
                 raise ValueError("Cannot get playlist item")
             
             if len(lis_video_id) == 0:
+                print("Cannot get live stream info")
                 return None, None
 
             video_details = await self.get_live_stream_info(",".join(lis_video_id), channel_id)
@@ -355,6 +356,7 @@ class LiveStreamStatus:
                 raise ValueError("Cannot get live stream info")
 
             if len(video_details) == 0:
+                print("Cannot get live stream info")
                 return None, None
 
             for data in video_details:
@@ -365,8 +367,10 @@ class LiveStreamStatus:
             error_reason = (
                 e.error_details[0]["reason"] if e.error_details else "unknown error"
             )
+            print("Channel id: ", channel_id)
             raise error_reason
         except Exception as e:
+            print("Channel id: ", channel_id)
             raise e
 
     def get_channel_info(self, channel_id:str):
@@ -504,7 +508,7 @@ class LiveStreamStatus:
             # Before 19.00 - 30 = 18.30 < Now (18.30) < 19.00 + 10 = 19.10 :  pass
             # After  21.30 - 30 = 21.00 < Now (18.30) < 21.30 + 10 = 21.40 :  continue
             # After  19.30 - 30 = 19.00 < Now (18.30) < 19.30 + 10 = 19.40 :  continue
-            print(old_start_at, new_start_at, data["live_status"], video_details["live_status"])
+            # print(old_start_at, new_start_at, data["live_status"], video_details["live_status"])
             if old_start_at != new_start_at or data["live_status"] != video_details["live_status"] or video_details["live_status"] == 'live':
                 # print("Update", data["title"], video_details["live_status"], old_start_at, new_start_at)
                 continue

@@ -11,7 +11,7 @@ import threading
 
 from get_env import GetEnv
 from botDiscord import run_discord_bot
-from flask_app import run_server
+from receive_webhook import run_server
 from botSendMessage import BotSendMessage
 from subscribe_to_channel import SubscribeToChannel
 

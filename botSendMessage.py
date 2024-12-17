@@ -87,8 +87,10 @@ class BotSendMessage:
         response = requests_post(url, headers=headers, json=embeds)
         if response.status_code == 200:
             print("BotSendMSG: Embed sent successfully.")
+            return {"status": "success", "message": "Embed sent successfully"}
         else:
             print(f"BotSendMSG: Failed to send embed. Status code: {response.status_code}")
+            return {"status": "failed", "message": f"Error: {response.status_code}"}
 
 
     # embed as http send response

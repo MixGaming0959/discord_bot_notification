@@ -15,6 +15,7 @@ class DatabaseManager:
         self.ALREADY_LIVE = env.get_env_int('ALREADY_LIVE')
         self.BEFORE_LIVE = env.get_env_int('BEFORE_LIVE')
         self.GMT = env.get_env_int('GMT')
+        self.CLEAR_LIVE_TABLE = env.get_env_str('CLEAR_LIVE_TABLE')
         # db_path = path.join(path.dirname(__file__), db_name)
         self.db_name = path.join(path.dirname(__file__), db_name)
 
@@ -127,13 +128,13 @@ class DatabaseManager:
             data['start_at'] = dt.strftime('%Y-%m-%d %H:%M:%S')
             
         # Auto Delete
-        self.deleteLiveTable()
+        self.clearLiveTable()
         return data
     
-    def deleteLiveTable(self):
-        query = """
+    def clearLiveTable(self):
+        query = f"""
             delete from livetable
-            where date(startat) <= DATE('now', '-2 day')
+            where date(startat) <= DATE('now', '-{self.CLEAR_LIVE_TABLE} day')
         """
         self.execute_query(query)
 
@@ -332,20 +333,31 @@ class DatabaseManager:
         )
 
     def insertVtuber(self, data: dict):
-        group = self.getGroup(data["group_name"])
-        if group == None:
-            self.insertGroup(data["group_name"])
+        gen, group = {'id': None}, {'id': None}
+
+        if data["group_name"] is not None:
             group = self.getGroup(data["group_name"])
-        gen = self.getGen(data["gen_name"], group["name"])
-        if gen == None:
-            self.insertGen({"name": data["gen_name"], "group_name": group["name"], "image": data["image"]})
+            if group is None:
+                self.insertGroup(data["group_name"])
+                group = self.getGroup(data["group_name"])
+        else:
+            group = self.getGroup(data["name"])
+            if group is None:
+                self.insertGroup(data["name"])
+                group = self.getGroup(data["name"])
+
+        if data["gen_name"] is not None:
             gen = self.getGen(data["gen_name"], group["name"])
+            if gen == None:
+                self.insertGen({"name": data["gen_name"], "group_name": group["name"], "image": data["image"]})
+                gen = self.getGen(data["gen_name"], group["name"])
+
         query = f"""
             insert into vtuber (ID, Name, GenID, GroupsID, YoutubeTag, Image, ChannelID, IsEnable)
-            values (?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?);
         """
         self.execute_many(
-            query,[(data["name"], gen["id"], group["id"], data["youtube_tag"], data["image"], data["channel_id"], 1)],
+            query,[(gen_uuid(),data["name"], gen["id"], group["id"], data["youtube_tag"], data["image"], data["channel_id"], 1)],
         )
     
     def getGen(self, genName: str, groupName: str, image: str = ""):
@@ -377,7 +389,8 @@ class DatabaseManager:
         query = f"""
             select id, name
             from groups
-            where name like '%{groupName}%';
+            where name like '%{groupName}%'
+            limit 1;
         """
         # print(query)
         result = self.execute_query(query)
@@ -390,9 +403,11 @@ class DatabaseManager:
     def insertGroup(self, name: str):
         query = f"""
             insert into groups (id,name)
-            values ({gen_uuid()},'{name});
+            values (?, ?);
         """
-        self.execute_query(query)
+        self.execute_many(
+            query,[(gen_uuid(),name)],
+        )
     
     def simpleCheckSimilarity(self, target: str, source: str) -> bool:
         query = f"""
