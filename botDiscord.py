@@ -2,6 +2,8 @@ from random import randint
 import asyncio, traceback
 from datetime import datetime, timedelta
 import discord # type: ignore
+from discord import app_commands, Embed as discordEmbed # type: ignore
+from discord.ui import button as discordButton, View as discordView # type: ignore
 from discord.ext import commands  # type: ignore
 from database import DatabaseManager
 import fetchData
@@ -52,15 +54,15 @@ async def on_error(event_method, *args, **kwargs):
     print(f'An error occurred: {event_method}, {args}, {kwargs}')
 
 @client.tree.command(name='get-live', description="คำสั่งที่ดึงตารางไลฟ์ตามตัวเลือกที่คุณเลือก")
-@discord.app_commands.describe(options="เลือกตัวเลือกที่ต้องการ", name="ชื่อ", istoday="วันนี้หรือไม่ True or False")
-@discord.app_commands.choices(
+@app_commands.describe(options="เลือกตัวเลือกที่ต้องการ", name="ชื่อ", istoday="วันนี้หรือไม่ True or False")
+@app_commands.choices(
     options = [
-        discord.app_commands.Choice(name = "ชื่อช่อง", value = 0),
-        discord.app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
-        discord.app_commands.Choice(name = "ค่าย", value = 2),
+        app_commands.Choice(name = "ชื่อช่อง", value = 0),
+        app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
+        app_commands.Choice(name = "ค่าย", value = 2),
     ]
 )
-async def getLive(interaction, options: discord.app_commands.Choice[int], name: str, istoday: bool=True):
+async def getLive(interaction, options: app_commands.Choice[int], name: str, istoday: bool=True):
     """Sends a greeting message to the specified user with an optional custom message."""
     await interaction.response.defer()
     listVtuber = []
@@ -80,7 +82,7 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
         elif options.value == 2:
             listVtuber = db.listVtuberByGroup(name)
         else :
-            embed = discord.Embed(
+            embed = discordEmbed(
                 title="ไม่พบข้อมูล",
                 description=f"ไม่พบข้อมูล {name} ที่ต้องการ",
                 color=discord.Color.yellow()
@@ -89,7 +91,7 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
             return
         
         if listVtuber == None or len(listVtuber) == 0 or listVtuber[0] == None:
-            embed = discord.Embed(
+            embed = discordEmbed(
                 title="ไม่พบข้อมูล",
                 description=f"ไม่พบข้อมูล {name} ที่ต้องการ",
                 color=discord.Color.yellow()
@@ -122,7 +124,7 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
                     timeNowFunc().strftime("%Y-%m-%d"), "%Y-%m-%d"
                 )
 
-                embedVtuber = discord.Embed(
+                embedVtuber = discordEmbed(
                     title=v["name"],
                     description=f"ตารางไลฟ์ ประจำวันที่ {start_at.strftime('%d %B %Y')} ของ {v['name']}",
                     color=random_color()
@@ -144,7 +146,7 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
                 # embedVtuber.set_footer(text=f"Tag: {v['channel_tag']}")
                 lis_embed.append(embedVtuber)
         if options.value == 0 and not found:
-            embed = discord.Embed(
+            embed = discordEmbed(
                 title=listVtuber[0]["name"],
                 description=f"ตอนนี้ {listVtuber[0]['channel_tag']} ยังไม่มีตารางไลฟ์",
                 color=discord.Color.yellow()
@@ -152,7 +154,7 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
             await interaction.followup.send(embeds=[embed])
             return
         elif len(lis_embed) == 0:
-            embed = discord.Embed(
+            embed = discordEmbed(
                 title=name,
                 description=f"ตอนนี้ {name} ยังไม่มีตารางไลฟ์",
                 color=discord.Color.yellow()
@@ -176,7 +178,7 @@ async def getLive(interaction, options: discord.app_commands.Choice[int], name: 
         return
 
 @client.tree.command(name='get-live-table', description="คำสั่งที่ดึงตารางไลฟ์ตามตัวเลือกที่คุณเลือก")
-@discord.app_commands.describe(group_name="ชื่อกลุ่ม", date="วันที่ต้องการ เช่น 1/12/2567")
+@app_commands.describe(group_name="ชื่อกลุ่ม", date="วันที่ต้องการ เช่น 1/12/2567")
 async def getLiveTable(interaction: discord.Interaction, group_name: str, date: str=""):
     await interaction.response.defer()
     listVtuber = []
@@ -198,7 +200,7 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
         print(f"getLiveTable: {group_name}, {date_obj}")
         data_gen = db.listGenByGroup(group_name)
         if data_gen == None or len(data_gen) == 0:
-            embed = discord.Embed(
+            embed = discordEmbed(
                 title="ไม่พบข้อมูล",
                 description=f"ไม่พบข้อมูล {group_name} ที่ต้องการ",
                 color=discord.Color.yellow()
@@ -210,7 +212,7 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
             pageInfo+=1
             gen_name = g["name"]
             listVtuber = db.listVtuberByGen(gen_name)
-            embedVtuber = discord.Embed(
+            embedVtuber = discordEmbed(
                         title=f"ตารางไลฟ์ ประจำวันที่ {date_obj.strftime('%d %B %Y')} ของ {gen_name}",
                         color=random_color(),
                     )
@@ -226,7 +228,7 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
                     # print(f"Gen: {gen_name}")
                     listEmbed.append(embedVtuber)
                     pageInfo += 1
-                    embedVtuber = discord.Embed(
+                    embedVtuber = discordEmbed(
                         title=f"ตารางไลฟ์ ประจำวันที่ {date_obj.strftime('%d %B %Y')} ของ {gen_name}",
                         color=random_color(),
                     )
@@ -339,18 +341,18 @@ def truncate_embed(listEmbed: list) -> list:
     return newListEmbed
 
 @client.tree.command(name='update-live', description="คำสั่งที่อัพเดทข้อมูลตารางเผื่อว่ามีไลฟ์ที่มีการเปลี่ยนแปลง")
-@discord.app_commands.describe(
+@app_commands.describe(
     options = "เลือกตัวเลือกที่ต้องการ",
     name = "ชื่อช่องที่ต้องการ"
 )
-@discord.app_commands.choices(
+@app_commands.choices(
     options = [
-        discord.app_commands.Choice(name = "ชื่อช่อง", value = 0),
-        discord.app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
-        discord.app_commands.Choice(name = "ค่าย", value = 2),
+        app_commands.Choice(name = "ชื่อช่อง", value = 0),
+        app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
+        app_commands.Choice(name = "ค่าย", value = 2),
     ]
 )
-async def updateLive(interaction: discord.Interaction, options: discord.app_commands.Choice[int], name: str):
+async def updateLive(interaction: discord.Interaction, options: app_commands.Choice[int], name: str):
     await interaction.response.defer()
    
     listVtuber = []
@@ -419,18 +421,18 @@ async def updateLive(interaction: discord.Interaction, options: discord.app_comm
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
 
 @client.tree.command(name='check-live-status', description="ตรวจสอบสถานะไลฟ์ของ Vtuber ที่คุณเลือก")
-@discord.app_commands.describe(
+@app_commands.describe(
     options = "เลือกตัวเลือกที่ต้องการ",
     name = "ชื่อช่องที่ต้องการ"
 )
-@discord.app_commands.choices(
+@app_commands.choices(
     options = [
-        discord.app_commands.Choice(name = "ชื่อช่อง", value = 0),
-        # discord.app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
-        # discord.app_commands.Choice(name = "ค่าย", value = 2),
+        app_commands.Choice(name = "ชื่อช่อง", value = 0),
+        # app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
+        # app_commands.Choice(name = "ค่าย", value = 2),
     ]
 )
-async def checkLiveStatus(interaction: discord.Interaction, options: discord.app_commands.Choice[int], name: str):
+async def checkLiveStatus(interaction: discord.Interaction, options: app_commands.Choice[int], name: str):
     await interaction.response.defer()
    
     listVtuber = []
@@ -462,7 +464,7 @@ async def checkLiveStatus(interaction: discord.Interaction, options: discord.app
         print(traceback.format_exc())
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
 
-class Paginator(discord.ui.View):
+class Paginator(discordView):
     def __init__(self, embeds, timeout=10):
         super().__init__(timeout=timeout)
         self.embeds = embeds
@@ -476,31 +478,31 @@ class Paginator(discord.ui.View):
         self.children[2].disabled = self.current_page == len(self.embeds) - 1  # Disable Next if on the last page
         self.children[3].disabled = self.current_page == len(self.embeds) - 1  # Disable Next if on the last page
 
-    @discord.ui.button(label="First", style=discord.ButtonStyle.green)
-    async def first_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discordButton(label="First", style=discord.ButtonStyle.green)
+    async def first_button(self, interaction: discord.Interaction, button: discordButton):
         if self.current_page > 0:
             self.current_page = 0
             self.update_button_states()  # Update button states
             await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
 
     # Define the button for the previous page
-    @discord.ui.button(label="Previous", style=discord.ButtonStyle.secondary)
-    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discordButton(label="Previous", style=discord.ButtonStyle.secondary)
+    async def previous_button(self, interaction: discord.Interaction, button: discordButton):
         if self.current_page > 0:
             self.current_page -= 1
             self.update_button_states()  # Update button states
             await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
 
     # Define the button for the next page
-    @discord.ui.button(label="Next", style=discord.ButtonStyle.secondary)
-    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discordButton(label="Next", style=discord.ButtonStyle.secondary)
+    async def next_button(self, interaction: discord.Interaction, button: discordButton):
         if self.current_page < len(self.embeds) - 1:
             self.current_page += 1
             self.update_button_states()  # Update button states
             await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
 
-    @discord.ui.button(label="Last", style=discord.ButtonStyle.primary)
-    async def last_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discordButton(label="Last", style=discord.ButtonStyle.primary)
+    async def last_button(self, interaction: discord.Interaction, button: discordButton):
         if self.current_page < len(self.embeds) - 1:
             self.current_page = len(self.embeds) - 1
             self.update_button_states()  # Update button states
@@ -517,7 +519,7 @@ class Paginator(discord.ui.View):
         print(traceback.format_exc())
 
 @client.tree.command(name='insert-new-channel', description="สร้างช่องใหม่ ถ้าเป็นอิสระก็ให้ว่างช่องรุ่น คำเตือนอย่าใช่บ่อยเกินไป !!!")
-@discord.app_commands.describe(username="ชื่อช่องเต็มเท่านั้น", gen_name="ชื่อรุ่น/บ้านเต็มเท่านั้น", group_name="ชื่อค่ายเต็มเท่านั้น")
+@app_commands.describe(username="ชื่อช่องเต็มเท่านั้น", gen_name="ชื่อรุ่น/บ้านเต็มเท่านั้น", group_name="ชื่อค่ายเต็มเท่านั้น")
 async def insertNewChannel(interaction: discord.Interaction, username: str, gen_name: str=None, group_name: str=None):
     await interaction.response.defer()
     try:
@@ -529,7 +531,7 @@ async def insertNewChannel(interaction: discord.Interaction, username: str, gen_
         result = liveStreamStatus.insert_channel(username, gen_name, group_name)
         if result == None:
             raise ValueError("ไม่พบช่องที่ต้องการ")
-        embed = discord.Embed(title="New Channel", color=random_color())
+        embed = discordEmbed(title="New Channel", color=random_color())
         embed.add_field(name="ชื่อช่อง", value=result['name'], inline=False)
         embed.add_field(name="Tag", value=f"@{result['youtube_tag']}", inline=False)
         embed.add_field(name="ชื่อรุ่น/บ้าน", value=result['gen_name'], inline=False)
@@ -561,15 +563,15 @@ async def insertVideo(interaction: discord.Interaction, url: str):
         return
 
 @client.tree.command(name='set-bot', description="ลงทะเบียนบอทลง Channel นี้")
-@discord.app_commands.choices(
+@app_commands.choices(
     options2 = [
-        discord.app_commands.Choice(name = "ชื่อช่อง", value = 0),
-        discord.app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
-        discord.app_commands.Choice(name = "ค่าย", value = 2),
+        app_commands.Choice(name = "ชื่อช่อง", value = 0),
+        app_commands.Choice(name = "รุ่น/บ้าน", value = 1),
+        app_commands.Choice(name = "ค่าย", value = 2),
     ]
 )
-@discord.app_commands.describe(options1="เปิดให้ใช้งานคำสั่งที่ช่องนี้ใช่หรือไม่", options2="ต้องการแจ้งเตือนแบบไหน", name="ชื่อ", options3="เปิดแจ้งเตือนตอนเริ่มไลฟ์ที่ช่องนี้ใช่หรือไม่", options4="เปิดแจ้งเตือนก่อนเริ่มไลฟ์ที่ช่องนี้ใช่หรือไม่")
-async def setBot(interaction: discord.Interaction, options1: bool, options2: discord.app_commands.Choice[int], name: str, options3: bool=False, options4: bool=False):
+@app_commands.describe(options1="เปิดให้ใช้งานคำสั่งที่ช่องนี้ใช่หรือไม่", options2="ต้องการแจ้งเตือนแบบไหน", name="ชื่อ", options3="เปิดแจ้งเตือนตอนเริ่มไลฟ์ที่ช่องนี้ใช่หรือไม่", options4="เปิดแจ้งเตือนก่อนเริ่มไลฟ์ที่ช่องนี้ใช่หรือไม่")
+async def setBot(interaction: discord.Interaction, options1: bool, options2: app_commands.Choice[int], name: str, options3: bool=False, options4: bool=False):
     await interaction.response.defer()
     keyOption = {
         True: "เปิด",
@@ -581,7 +583,7 @@ async def setBot(interaction: discord.Interaction, options1: bool, options2: dis
         name = name.strip()
         
         discord_id = db.checkDiscordServer(guild, channel, options1)
-        embed = discord.Embed(
+        embed = discordEmbed(
             title = "ลงทะเบียนบอทแจ้งเตือนไลฟ์",
             description = "ข้อมูลที่ลงทะเบียน",
             color=random_color(),

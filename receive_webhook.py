@@ -113,9 +113,9 @@ def function(video_id:str, result:list, loop:int= 0):
                         gen_ids.add(colab['gen_id'])
                         group_ids.add(colab['group_id'])
             live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=60), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
-            upcoming_status = v['live_status'] == "upcoming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=30))
+            # upcoming_status = v['live_status'] == "upcoming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=30))
 
-            if (live_status or upcoming_status) and SEND_MSG_WHEN_START:
+            if (live_status) and SEND_MSG_WHEN_START:
                 discord_details = db.getDiscordDetails(list(vtuber_ids), list(gen_ids), list(group_ids))
                 for detail in set(tuple(d.items()) for d in discord_details):
                     dic = dict(detail)

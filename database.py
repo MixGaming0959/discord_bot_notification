@@ -220,7 +220,23 @@ class DatabaseManager:
         if result:
             return [dict(zip(['name'], row)) for row in result]
         else:
-            return None
+            return []
+    
+    def listGen(self):
+        query = 'select name from \"generation\"'
+        result = self.execute_query(query)
+        if result:
+            return [dict(zip(['name'], row)) for row in result]
+        else:
+            return []
+    
+    def listVtuber(self):
+        query = 'select name from \"vtuber\"'
+        result = self.execute_query(query)
+        if result:
+            return [dict(zip(['name'], row)) for row in result]
+        else:
+            return []
     
     def listGenByGroup(self, group_name: str):
         query = f"""
@@ -276,7 +292,7 @@ class DatabaseManager:
         uuid = gen_uuid()
         query = f"""
             insert into discord_mapping (id, discord_id, defaultvtuber_id, defaultgen_id, defaultgroup_id, is_NotifyOnLiveStart, Is_PreAlertEnabled)
-            values (?, ?, ?, ?, ?, ?);
+            values (?, ?, ?, ?, ?, ?, ?);
         """
         self.execute_many(
             query,[(uuid, data["discord_id"], data["default_vtuber_id"], data["default_gen_id"], data["default_group_id"], data["is_NotifyOnLiveStart"], data["Is_PreAlertEnabled"])],
