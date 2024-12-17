@@ -3,15 +3,14 @@ from threading import Timer
 # from flask import Flask, request  # type: ignore
 import requests # type: ignore
 import xml.etree.ElementTree as ET
-from get_env import GetEnv  # type: ignore
 
 import asyncio
 from datetime import datetime, timedelta
 
 from bottle import Bottle, request, response
-
 app = Bottle()
 
+from get_env import GetEnv  # type: ignore
 env = GetEnv()
 # Constants
 WEBHOOK_URL = env.webhook_url_env()

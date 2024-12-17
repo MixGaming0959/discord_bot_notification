@@ -282,40 +282,41 @@ class LiveStreamStatus:
             part="snippet",
             q=username,
             type="channel",
-            maxResults=5,  # จำนวนผลลัพธ์ที่ต้องการ
+            maxResults=1,  # จำนวนผลลัพธ์ที่ต้องการ
         )
 
         response = request.execute()
 
         # แสดงผลชื่อและข้อมูลช่องที่ค้นหาได้
+        target_similarity = {}
         for item in response["items"]:
             name = item["snippet"]["channelTitle"]
-            if self.db.simpleCheckSimilarity(name, username):
-                if group_name == "" or gen_name == "":
-                    group_name = "Independence"
-                    gen_name = "Independence"
+            target_similarity[name] = {"item": item}
+        
+        if len(target_similarity) == 0:
+            raise ValueError(f"ไม่พบช่องที่เกี่ยวข้องกับ {username}")
 
-                thumbnails = item["snippet"]["thumbnails"]
-                image = thumbnails["default"]["url"]
-                if "maxres" in thumbnails:
-                    image = thumbnails["maxres"]["url"]
-                elif "high" in thumbnails:
-                    image = thumbnails["high"]["url"]
-                elif "medium" in thumbnails:
-                    image = thumbnails["medium"]["url"]
-                youtube_tag = self.get_channel_tag(item["snippet"]["channelId"])
-                data = {
-                    "name": name,
-                    "gen_name": gen_name,
-                    "group_name": group_name,
-                    "youtube_tag": youtube_tag,
-                    "image": image,
-                    "channel_id": item["snippet"]["channelId"],
-                }
-                self.db.insertVtuber(data)
-                return data
-            else:
-                continue
+        channel_target = self.db.simpleCheckSimilarity(list(target_similarity.keys()), username)
+        for item in [target_similarity[channel_target]['item']]:
+            thumbnails = item["snippet"]["thumbnails"]
+            image = thumbnails["default"]["url"]
+            if "maxres" in thumbnails:
+                image = thumbnails["maxres"]["url"]
+            elif "high" in thumbnails:
+                image = thumbnails["high"]["url"]
+            elif "medium" in thumbnails:
+                image = thumbnails["medium"]["url"]
+            youtube_tag = self.get_channel_tag(item["snippet"]["channelId"])
+            data = {
+                "name": name,
+                "gen_name": gen_name,
+                "group_name": group_name,
+                "youtube_tag": youtube_tag,
+                "image": image,
+                "channel_id": item["snippet"]["channelId"],
+            }
+            self.db.insertVtuber(data)
+            return data
 
         raise ValueError(f"ไม่พบช่องที่เกี่ยวข้องกับ {username}")
     
@@ -531,16 +532,108 @@ class LiveStreamStatus:
             date_str = date_str[:date_str.index(".")] + reversed_date_str[::-1]
 
         return datetime.strptime(date_str, date_format)
-if __name__ == "__main__":
-    lv = LiveStreamStatus("assets/video.db", True)
-    # # get_live_stream
-    # # asyncio.run(lv.get_live_stream("ShuunAruna"))
-    # x = (lv.get_channel_tag("UCGo7fnmWfGQewxZVDmC3iJQ"))
-    # print(x)
 
-    x = asyncio.run(lv.get_before_live_stream())
-    for i in x:
-        print(i['title'])
+    def insert_channel_from_main_channel(self, channel_tag: str):
+        try: 
+            youtube = build("youtube", "v3", developerKey=self.api_key)
+            request = youtube.search().list(
+                part="snippet",
+                q=channel_tag,
+                type="channel",
+                maxResults=1,  # จำนวนผลลัพธ์ที่ต้องการ
+            )
+
+            response = request.execute()
+            # ค้นหาช่องหลัก เช่น Pixela Project
+            target_similarity = {}
+            for item in response["items"]:
+                name = item["snippet"]["channelTitle"]
+                target_similarity[name] = {"item": item}
+
+            if len(target_similarity) == 0:
+                raise ValueError(f"ไม่พบช่องที่เกี่ยวข้องกับ {channel_tag}")
+
+            # to [name1, name2, ...]
+            channel_target = self.db.simpleCheckSimilarity(list(target_similarity.keys()), channel_tag)
+            target_item = target_similarity[channel_target]["item"]
+            group_name = target_item["snippet"]["channelTitle"]
+            group_channel_id = target_item["snippet"]["channelId"]
+            
+            request = youtube.channelSections().list(
+                part="snippet,contentDetails",
+                channelId=group_channel_id
+            )
+
+            response = request.execute()
+            group_channel = {
+                "group_name": group_name,
+                "details": []
+            }
+            for item in response["items"]:
+                snippet = item["snippet"]
+                if snippet['type'] == "multiplechannels":
+                    gen_name = str(snippet['title'])
+                    vtuber_in_gen = list(item["contentDetails"]["channels"])
+                    group_channel['details'].append({
+                        "gen_name": gen_name,
+                        "vtuber_in_gen": vtuber_in_gen
+                })
+            if group_channel['details'] == []:
+                raise ValueError(f"ช่อง {group_channel['group_name']} อาจจะยังไม่ได้มีการเพิ่ม Vtuber เข้าไป")
+            
+            result = []
+            for de in group_channel['details']:
+                channel_ids = ",".join(de['vtuber_in_gen'])
+                gen_name = de['gen_name']
+                request = youtube.channels().list(
+                    part="snippet,contentDetails",
+                    id=channel_ids,
+                    maxResults=50
+                )
+                response = request.execute() 
+
+                for item in response["items"]:
+                    snippet = item["snippet"]
+                    channel_name = str(snippet['title'])
+                    channel_tag = str(snippet['customUrl']).replace("@", "")
+
+                    thumbnails = item["snippet"]["thumbnails"]
+                    image = thumbnails["default"]["url"]
+                    if "maxres" in thumbnails:
+                        image = thumbnails["maxres"]["url"]
+                    elif "high" in thumbnails:
+                        image = thumbnails["high"]["url"]
+                    elif "medium" in thumbnails:
+                        image = thumbnails["medium"]["url"]
+
+                    data = {
+                        "name": channel_name,
+                        "gen_name": de['gen_name'],
+                        "group_name": group_channel['group_name'],
+                        "youtube_tag": channel_tag,
+                        "image": image,
+                        "channel_id": item['id'],
+                    }
+                    try:
+                        self.db.insertVtuber(data)
+                        result.append(data)
+                    except Exception as e:
+                        if "has already in database" in str(e):
+                            continue
+                        else:
+                            raise e
+            if len(result) == 0:
+                raise ValueError(f"ไม่ได้มีการอัพเดต Vtuber คนใหม่")
+            return result
+        except Exception as e:
+            print(e)
+            raise e
+
+# if __name__ == "__main__":
+#     lv = LiveStreamStatus("assets/video.db", True)
+
+#     x = lv.insert_channel_from_main_channel("Polygon Official")
+
 
     
 

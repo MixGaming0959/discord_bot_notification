@@ -1,13 +1,13 @@
 from random import randint
 import asyncio, traceback
-from datetime import datetime, timedelta
+from datetime import datetime
 import discord # type: ignore
 from discord import app_commands, Embed as discordEmbed # type: ignore
 from discord.ui import button as discordButton, View as discordView # type: ignore
 from discord.ext import commands  # type: ignore
+
 from database import DatabaseManager
 import fetchData
-
 from get_env import GetEnv
 
 env = GetEnv()
@@ -542,6 +542,55 @@ async def insertNewChannel(interaction: discord.Interaction, username: str, gen_
         print(traceback.format_exc())
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
         return
+    
+@client.tree.command(name='insert-new-from-main-channel', description="ลงทะเบียนหรืออัพเดทจากช่องหลัก เช่น Pixela Office")
+@app_commands.describe(username="ชื่อช่องเต็มเท่านั้น")
+async def insertNewFromMainChannel(interaction: discord.Interaction, username: str):
+    await interaction.response.defer()
+    try:
+        txt = discordAuthChannel(interaction)
+        if txt != None:
+            await interaction.followup.send(txt)
+            return
+        data = [{
+            "name": "",
+            "gen_name": "",
+            "group_name": "",
+            "youtube_tag": "",
+            "image": "",
+            "channel_id": "",
+        }]
+        result = liveStreamStatus.insert_channel_from_main_channel(username)
+        if result == None:
+            raise ValueError("ไม่พบช่องที่ต้องการ")
+        
+        genList = dict()
+        split_data = []
+        for i in result:
+            if i['gen_name'] not in genList:
+                # เก็บ index ของ split_data
+                genList[i['gen_name']] = len(split_data)
+                split_data.append([])
+                
+            index = genList[i['gen_name']]
+            split_data[index].append(i)
+
+        embedList = []
+        for gen_name, index in genList.items():
+            embed = discordEmbed(title=split_data[0][0]['group_name'], color=random_color())
+            embed.add_field(name="ชื่อรุ่น/บ้าน", value=gen_name, inline=False)
+            vtuber = ""
+            for value in split_data[index]:
+                channel_url = f"https://www.youtube.com/@{value['youtube_tag'].title()}"
+                vtuber += f"[{value['name']}]({channel_url})\n"
+            embed.add_field(name="Vtuber ในรุ่นนี้", value=vtuber, inline=False)
+            embedList.append(embed)
+
+        await interaction.followup.send(embeds=embedList)
+    except Exception as e:
+        print(traceback.format_exc())
+        await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
+        return
 
 @client.tree.command(name='insert-video', description="สำหรับสร้างวีดีโอ/LiveStream ใหม่ ด้วยมือ")
 async def insertVideo(interaction: discord.Interaction, url: str):
@@ -655,5 +704,8 @@ def discordAuthChannel(interaction: discord.Interaction):
 def run_discord_bot(token: str):
     client.run(token)
 
-# if __name__ == '__main__':
-#     run_discord_bot()
+if __name__ == '__main__':
+    from get_env import GetEnv
+    env = GetEnv()
+    token = env.discord_token_env()
+    run_discord_bot(token)

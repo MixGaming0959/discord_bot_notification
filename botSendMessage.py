@@ -1,19 +1,16 @@
 from random import randint
-from os import environ
 from requests import post as requests_post # type: ignore
-
 import asyncio
 from datetime import datetime, time
 
 from get_env import GetEnv
-
 from database import DatabaseManager
+from fetchData import LiveStreamStatus
 # env = GetEnv()
 
 def random_color():
     # Generate a random color as an integer value
     return int(randint(0, 0xFFFFFF))
-from fetchData import LiveStreamStatus
 
 
 class BotSendMessage:
