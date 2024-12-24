@@ -346,7 +346,7 @@ class LiveStreamStatus:
 
             lis_video_id = self.get_playlist_item(playlist_id, channel_id)
             if lis_video_id == None:
-                raise ValueError("Cannot get playlist item")
+                raise ValueError(f"Channel id: {channel_id} Cannot get playlist item")
             
             if len(lis_video_id) == 0:
                 print("Cannot get live stream info")
@@ -354,7 +354,7 @@ class LiveStreamStatus:
 
             video_details = await self.get_live_stream_info(",".join(lis_video_id), channel_id)
             if video_details == None:
-                raise ValueError("Cannot get live stream info")
+                raise ValueError(f"Channel id: {channel_id} Cannot get live stream info")
 
             if len(video_details) == 0:
                 print("Cannot get live stream info")
@@ -410,14 +410,14 @@ class LiveStreamStatus:
             request = youtube.playlistItems().list(
                 part="contentDetails",
                 playlistId=playlist_id,
-                maxResults=10
+                maxResults=20
             )
             response = request.execute()
             # print(member_playlist)
             request_member = youtube.playlistItems().list(
                 part="contentDetails",
                 playlistId=member_playlist,
-                maxResults=5
+                maxResults=10
             )
             try:
                 response_member = request_member.execute()
@@ -435,8 +435,8 @@ class LiveStreamStatus:
         except Exception as e:
             raise e
         result_video_id = []
-        timeBefore = self.db.datetime_gmt(datetime.now() + timedelta(days=10))
-        timeAfter = self.db.datetime_gmt(datetime.now() - timedelta(days=10))
+        timeBefore = self.db.datetime_gmt(datetime.now() + timedelta(days=14))
+        timeAfter = self.db.datetime_gmt(datetime.now() - timedelta(days=14))
         if "items" in response and response["items"]:
             # print("normal")
             for item in response["items"]:

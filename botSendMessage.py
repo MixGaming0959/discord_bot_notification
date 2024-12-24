@@ -98,7 +98,6 @@ class BotSendMessage:
         vtuber_image = self.db.getVtuber(data[0]["channel_id"])['image']
         for v in data:
             # print(v)
-            title = v["title"] + f" กำลังจะเริ่มไลฟ์ในอีก {self.BEFORE_LIVE} นาที"
             url = v["url"]
             image = v["image"]
             if type(v["start_at"]) == str:
@@ -107,7 +106,20 @@ class BotSendMessage:
             else:
                 start_at = v["start_at"].strftime('%H:%M')
             # start_at = (datetime.strptime(v['start_at'], "%Y-%m-%d %H:%M:%S")).strftime('%H:%M')
+            # now - start_at to hour and minute
+            dt = self.db.datetime_gmt(v["start_at"]) - self.db.datetime_gmt(datetime.now())
+            hour, minute = dt.seconds // 3600, (dt.seconds // 60) % 60
 
+            timeStr = ""
+            if hour > 0:
+                timeStr += f"{hour} ชั่วโมง "
+            if minute > 0:
+                timeStr += f"{minute} นาที"
+            if timeStr == "":
+                timeStr = "0 นาที"
+            
+
+            title = v["title"] + f" กำลังจะเริ่มไลฟ์ในอีก {timeStr} นาที"
             channel_name = v["channel_name"]
             channel_tag = v["channel_tag"]
             live_status = v["live_status"]
