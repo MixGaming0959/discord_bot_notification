@@ -1,12 +1,17 @@
-import asyncio
 import textwrap
 from datetime import datetime, timezone, timedelta
 import textwrap
 from database import DatabaseManager
 from googleapiclient.discovery import build  # type: ignore
 from googleapiclient.errors import HttpError  # type: ignore
+import google.auth
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+
 from get_env import GetEnv  # type: ignore
 
+SCOPES = ["https://www.googleapis.com/auth/youtube.readonly"]
 
 class LiveStreamStatus:
     def __init__(self, db_path: str, autoCheck: bool = False):
@@ -19,10 +24,34 @@ class LiveStreamStatus:
         self.TIME_ERROR = timedelta(minutes=30)
         self.LIMIT_TRUNCATE_STRING = 100
 
+    def get_youtube_service(self):
+        path_google = 'assets/google_assets/'
+        creds = None
+        # ลองโหลด token ที่เคยบันทึกไว้
+        try:
+            creds = Credentials.from_authorized_user_file(path_google+"token.json", SCOPES)
+        except Exception:
+            pass  # ถ้าไม่มีไฟล์ token.json ให้ข้ามไป
+
+        # ถ้าไม่มี Credentials หรือหมดอายุ ให้รัน OAuth Flow
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())  # รีเฟรชโทเค็นถ้าหมดอายุ
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(path_google+"client_secret.json", SCOPES)
+                creds = flow.run_local_server(port=0)
+
+            # บันทึก token ใหม่
+            with open(path_google+"token.json", "w") as token_file:
+                token_file.write(creds.to_json())
+
+        # สร้าง YouTube API Client
+        return build("youtube", "v3", credentials=creds)
+
     async def get_live_stream_info(self, video_ids: str, channel_id: str):
         vtuber = self.db.getVtuber(channel_id)
         try:
-            youtube = build("youtube", "v3", developerKey=self.api_key)
+            youtube = self.get_youtube_service()
 
             # ขอข้อมูลของวิดีโอที่กำหนด
             request = youtube.videos().list(
@@ -307,7 +336,7 @@ class LiveStreamStatus:
         channel = self.db.getVtuber(username)
         if channel != None:
             raise ValueError(f"ชื่อ {channel['name']} มีอยู่แล้วในฐานข้อมูล...")
-        youtube = build("youtube", "v3", developerKey=self.api_key)
+        youtube = self.get_youtube_service()
 
         request = youtube.search().list(
             part="snippet",
@@ -352,7 +381,7 @@ class LiveStreamStatus:
         raise ValueError(f"ไม่พบช่องที่เกี่ยวข้องกับ {username}")
     
     def get_channel_tag(self, channel_id:str):
-        youtube = build('youtube', 'v3', developerKey=self.api_key)
+        youtube = self.get_youtube_service()
 
         # ขอข้อมูล channel โดยใช้ part brandingSettings
         request = youtube.channels().list(
@@ -407,7 +436,7 @@ class LiveStreamStatus:
 
     def get_channel_info(self, channel_id:str):
         try: 
-            youtube = build("youtube", "v3", developerKey=self.api_key)
+            youtube = self.get_youtube_service()
             request = youtube.channels().list(
                 part="snippet,contentDetails",
                 id=channel_id
@@ -437,7 +466,7 @@ class LiveStreamStatus:
     def get_playlist_item(self, playlist_id:str, channel_id:str):
         try:
             member_playlist = "UUMO" + channel_id[2:]
-            youtube = build("youtube", "v3", developerKey=self.api_key)
+            youtube = self.get_youtube_service()
             request = youtube.playlistItems().list(
                 part="contentDetails",
                 playlistId=playlist_id,
@@ -566,7 +595,7 @@ class LiveStreamStatus:
 
     def insert_channel_from_main_channel(self, channel_tag: str):
         try: 
-            youtube = build("youtube", "v3", developerKey=self.api_key)
+            youtube = self.get_youtube_service()
             request = youtube.search().list(
                 part="snippet",
                 q=channel_tag,
@@ -661,7 +690,7 @@ class LiveStreamStatus:
             raise e
         
     def get_channel_details(self, channel_id:str) -> dict | None:
-        youtube = build('youtube', 'v3', developerKey=self.api_key)
+        youtube = self.get_youtube_service()
 
         # ขอข้อมูล channel โดยใช้ part brandingSettings
         request = youtube.channels().list(

@@ -14,7 +14,10 @@ import os
 # ตั้งค่าการบันทึก Log
 LOG_DIR = "Log"
 os.makedirs(LOG_DIR, exist_ok=True)  # สร้างโฟลเดอร์ Log ถ้ายังไม่มี
-LOG_FILE = os.path.join(LOG_DIR, "thread_monitor.log")
+os.makedirs(os.path.join(LOG_DIR, time.strftime("%Y-%m-%d")), exist_ok=True)
+
+date = time.strftime("%Y-%m-%d")
+LOG_FILE = os.path.join(LOG_DIR, f"{date}/thread_monitor.log")
 
 logging.basicConfig(
     filename=LOG_FILE,

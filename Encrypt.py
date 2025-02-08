@@ -3,7 +3,7 @@ from cryptography.fernet import Fernet # type: ignore
 
 class Encrypt:
     def __init__(self):
-        with open('key.txt', 'rb') as mykey:
+        with open('assets/google/key.txt', 'rb') as mykey:
             self.key = mykey.read()
 
     def encrypt(self, message):
