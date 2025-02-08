@@ -1,12 +1,12 @@
 from random import randint
 from requests import post as requests_post # type: ignore
 import asyncio
-from datetime import datetime, time
+from datetime import datetime
+from math import ceil as RoundUp
 
 from get_env import GetEnv
 from database import DatabaseManager
 from fetchData import LiveStreamStatus
-# env = GetEnv()
 
 def random_color():
     # Generate a random color as an integer value
@@ -108,7 +108,8 @@ class BotSendMessage:
             # start_at = (datetime.strptime(v['start_at'], "%Y-%m-%d %H:%M:%S")).strftime('%H:%M')
             # now - start_at to hour and minute
             dt = self.db.datetime_gmt(v["start_at"]) - self.db.datetime_gmt(datetime.now())
-            hour, minute = dt.seconds // 3600, (dt.seconds // 60) % 60
+            hour, minute = RoundUp(dt.seconds / 3600), RoundUp(dt.seconds / 60) % 60
+            # 1 ชั่วโมง 59 นาที -> 2 ชั่วโมง
 
             timeStr = ""
             if hour > 0:
@@ -119,7 +120,7 @@ class BotSendMessage:
                 timeStr = "0 นาที"
             
 
-            title = v["title"] + f" กำลังจะเริ่มไลฟ์ในอีก {timeStr} นาที"
+            title = v["title"] + f" กำลังจะเริ่มไลฟ์ในอีก {timeStr}"
             channel_name = v["channel_name"]
             channel_tag = v["channel_tag"]
             live_status = v["live_status"]

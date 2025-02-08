@@ -37,8 +37,20 @@ class LiveStreamStatus:
             #     print("x")
 
         except Exception as e:
+            video_in_db = []
+            lis_video_id = video_ids.split(",")
+            if len(lis_video_id) == 1:
+                for video_id in lis_video_id:
+                    self.db.cancelLiveTable(
+                        f"https://www.youtube.com/watch?v={video_id}", "cancelled"
+                    )
+                    video_in_db.append(self.db.getLiveTablebyURL(lis_video_id))
+
+                return video_in_db
+                
             print(e)
             return None
+        
         result = []
         lis_video_id = video_ids.split(",")
         video_in_db = {}
@@ -54,7 +66,7 @@ class LiveStreamStatus:
                 url = f"https://www.youtube.com/watch?v={video_id}"
                 # print(video_in_db[url])
                 # title contains "Birthday"
-                if live_status == "none" and "Birthday" not in title:
+                if live_status == "none":
                     # print(f"Channel {channel_tag} Url: {url} is not live")
                     lis_video_id.remove(video_id)
                     self.db.cancelLiveTable(
@@ -102,6 +114,7 @@ class LiveStreamStatus:
                     "image": image,
                     "live_status": live_status,
                     "channel_name": channel_name,
+                    "channel_title": snippet["channelTitle"],
                     "channel_tag": vtuber["channel_tag"],
                     "channel_id": channel_id,
                     "is_noti": video_in_db[url]["is_noti"] if url in video_in_db else False,
@@ -176,11 +189,16 @@ class LiveStreamStatus:
     def set_channel_id(self, channel_id: str):
         self.channel_id = channel_id
 
-    async def get_live_stream(self, channel_tag: str):
+    async def get_live_stream(self, channel_tag: str, fetch_all: bool = False):
         video = self.db.getLiveTable(channel_tag)
 
         # เก็บเวลาไลฟ์ แบบ list
         time_list = set()
+
+        # if fetch_all:
+        #     list_video_id = [i["url"].replace("https://www.youtube.com/watch?v=", "") for i in video]
+        #     await self.get_live_stream_info(video_id, data["channel_id"])
+
 
         result = []
         # ตรวจสอบว่าเริ่มถ่ายทอดสดหรือยัง
@@ -200,13 +218,23 @@ class LiveStreamStatus:
             time_list.add(data["start_at"])
             old_start_at = data["start_at"]
             isUpcoming = data["live_status"] in ["upcoming", "live"] and data["start_at"] < self.db.datetime_gmt(datetime.now())
-            if self.autoCheck and isUpcoming:
+            if (self.autoCheck and isUpcoming) or fetch_all:
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
                 video_details = await self.get_live_stream_info(video_id, data["channel_id"])
                 if video_details == None or len(video_details) == 0:
                     continue
                 video_details = video_details[0]
-                # print("1 is_noti", data['is_noti'], video_details['is_noti'])
+                
+                ## Update ช่อง
+                if (data['channel_name'] != video_details['channel_title']
+                    or data['channel_tag'] != video_details['channel_tag']):
+                    updated_data_channel = self.get_channel_details(video_details['channel_id'])
+                    if updated_data_channel is not None:
+                        print(f"Update Old {data['channel_name']} New {updated_data_channel['channel_name']}")
+                        self.db.updateVtuber(data['channel_id'], updated_data_channel)
+                        data['channel_name'] = updated_data_channel['channel_name']
+                        data['channel_tag'] = updated_data_channel['channel_tag']
+
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
                 if (
                     data["title"] != video_details["title"]
@@ -217,6 +245,9 @@ class LiveStreamStatus:
                     self.db.updateLiveTable(video_details)
                 else:
                     video_details = data
+
+                
+
             else:
                 # print("2 is_noti", data['is_noti'], video_details['is_noti'])
                 video_details = data
@@ -628,11 +659,43 @@ class LiveStreamStatus:
         except Exception as e:
             print(e)
             raise e
+        
+    def get_channel_details(self, channel_id:str) -> dict | None:
+        youtube = build('youtube', 'v3', developerKey=self.api_key)
 
-# if __name__ == "__main__":
-#     lv = LiveStreamStatus("assets/video.db", True)
+        # ขอข้อมูล channel โดยใช้ part brandingSettings
+        request = youtube.channels().list(
+            part='snippet,brandingSettings',
+            id=channel_id
+        )
 
-#     x = lv.insert_channel_from_main_channel("Polygon Official")
+        response = request.execute()
+        if "items" in response and response["items"]:
+            item = response["items"][0]
+            thumbnails = item["snippet"]["thumbnails"]
+            image = thumbnails["default"]["url"]
+            
+            if "maxres" in thumbnails:
+                image = thumbnails["maxres"]["url"]
+            elif "high" in thumbnails:
+                image = thumbnails["high"]["url"]
+            elif "medium" in thumbnails:
+                image = thumbnails["medium"]["url"]
+            data = {
+                "channel_name": item["snippet"]["title"],
+                "channel_tag": item["snippet"]["customUrl"].replace("@", "").title(),
+                "image": image,
+                "channel_id": item['id'],
+            }
+            return data
+        else:
+            return None
+
+if __name__ == "__main__":
+    lv = LiveStreamStatus("assets/video.db", True)
+
+    x = lv.get_channel_details("UCkEcY4RbLYs2AF45nhkyjtw")
+    print(x)
 
 
     

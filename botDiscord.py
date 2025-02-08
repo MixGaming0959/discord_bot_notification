@@ -178,8 +178,8 @@ async def getLive(interaction, options: app_commands.Choice[int], name: str, ist
         return
 
 @client.tree.command(name='get-live-table', description="คำสั่งที่ดึงตารางไลฟ์ตามตัวเลือกที่คุณเลือก")
-@app_commands.describe(group_name="ชื่อกลุ่ม", date="วันที่ต้องการ เช่น 1/12/2567")
-async def getLiveTable(interaction: discord.Interaction, group_name: str, date: str=""):
+@app_commands.describe(group_name="ชื่อกลุ่ม", fetch_all="อัปเดตไลฟ์ทุกหมด", date="วันที่ต้องการ เช่น 1/12/2567")
+async def getLiveTable(interaction: discord.Interaction, group_name: str, fetch_all: bool=False, date: str=""):
     await interaction.response.defer()
     listVtuber = []
     listEmbed = []
@@ -235,7 +235,7 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, date: 
                     # embedVtuber.set_footer(text=f"Pages: {pageInfo}/{len(data_gen)}")
                     embedVtuber.set_thumbnail(url=g['image'])
                 # print(f"Gen: {gen_name}, Vtuber: {v['Name']}")
-                live_streams = await liveStreamStatus.get_live_stream(v['channel_tag'])
+                live_streams = await liveStreamStatus.get_live_stream(v['channel_tag'], fetch_all)
                 if live_streams == None or len(live_streams) == 0:
                     continue
 

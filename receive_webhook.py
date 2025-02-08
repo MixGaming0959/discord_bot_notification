@@ -154,23 +154,45 @@ def parse_notification(notification):
     """Parse the Atom feed to extract video ID and channel ID."""
     try:
         root = ET.fromstring(notification)
-        namespace = {"atom": "http://www.w3.org/2005/Atom"}
+        namespace = {"atom": "http://www.w3.org/2005/Atom",'at': 'http://purl.org/atompub/tombstones/1.0'}
         video_id = root.find(".//atom:entry/atom:id", namespace)
         channel_id   = root.find(".//atom:entry/atom:author/atom:uri", namespace)
         channel_name = root.find(".//atom:entry/atom:author/atom:name", namespace)
         updated = root.find(".//atom:entry/atom:updated", namespace)
+
+        # check is deleted video       
+        deleted_entry = root.find("at:deleted-entry", namespace)
+        if deleted_entry is not None:
+            channel_name = root.find("at:deleted-entry/at:by/atom:name", namespace)
+            channel_id = root.find("at:deleted-entry/at:by/atom:uri", namespace)
+        
         if updated is not None:
             updated = db.datetime_gmt(truncate_date(updated.text))
         else:
             updated = db.datetime_gmt(datetime.now())
 
-        if video_id is not None and channel_id is not None and channel_name is not None and updated is not None:
+        if video_id is not None:
             video_id = video_id.text.split(":")[-1]
+        elif deleted_entry is not None:
+            video_id = deleted_entry.get("ref").split(":")[-1]
+        
+        if channel_id is not None:
             channel_id = channel_id.text.split("/")[-1] 
+        
+        if channel_name is not None:
             channel_name = channel_name.text
+        
+        if deleted_entry is None and updated is not None and video_id is not None and channel_id is not None and channel_name is not None:
             return video_id, channel_id, updated, channel_name
+        
         else:
-            print("WebhookApp: Raw notification received:", notification.decode("utf-8"))
+            if video_id is not None and channel_name is not None:
+                url = f"https://www.youtube.com/watch?v={video_id}"
+                db.cancelLiveTable(url, "cancelled")
+                print(f"WebhookApp: {url} is cancelled. Channel name: {channel_name}")
+            else:
+                print("WebhookApp: Raw notification received:", notification.decode("utf-8"))
+    
     except Exception as e:
         print(f"WebhookApp: Error parsing notification: {e}")
     return None, None, None, None

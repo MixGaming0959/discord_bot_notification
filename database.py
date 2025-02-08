@@ -239,7 +239,7 @@ class DatabaseManager:
             data["start_at"] = dt.strftime("%Y-%m-%d %H:%M:%S")
 
         # Auto Delete
-        self.clearLiveTable()
+        # self.clearLiveTable()
         return data
 
     def clearLiveTable(self):
@@ -312,7 +312,7 @@ class DatabaseManager:
 
     def getLiveTable(self, channelTag: str):
         query = f"""
-            select title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id, livetable.isnoti as is_noti
+            select title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, vtuber.name as channel_name, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id, livetable.isnoti as is_noti
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
             where (UPPER(colaborator) like UPPER('%{channelTag}%') or UPPER(vtuber.youtubetag) like UPPER('{channelTag}')) and livetable.livestatus != 'none'
@@ -335,6 +335,7 @@ class DatabaseManager:
                             "start_at",
                             "colaborator",
                             "channel_tag",
+                            "channel_name",
                             "image",
                             "vtuber_id",
                             "live_status",
@@ -622,6 +623,24 @@ class DatabaseManager:
                     data["image"],
                     data["channel_id"],
                     1,
+                )
+            ],
+        )
+    
+    def updateVtuber(self, channel_id:str, data: dict):
+        query = f"""
+            UPDATE VTUBER
+            SET Name = ?, YoutubeTag = ?, Image = ?
+            WHERE ChannelID = ?
+        """
+        self.execute_many(
+            query,
+            [
+                (
+                    data["channel_name"],
+                    data["channel_tag"].title(),
+                    data["image"],
+                    channel_id,
                 )
             ],
         )

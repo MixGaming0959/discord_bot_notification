@@ -2,3 +2,5 @@ __pycache__
 test
 key.txt
 .env.local
+Run Main.bat
+Run ngrok.bat

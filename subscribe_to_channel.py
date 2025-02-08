@@ -14,7 +14,7 @@ class SubscribeToChannel:
             self.CHANNEL_IDS.append({"channel_id": v["channel_id"], "channel_tag": v["channel_tag"]})
 
         self.PUBSUBHUBBUB_URL = env.get_env_str("PUBSUBHUBBUB_URL")
-        self.WEBHOOK_URL = env.get_env_str("WEBHOOK_URL")
+        self.WEBHOOK_URL = env.webhook_url_env()
         self.OLD_WEBHOOK_PATH = env.get_env_str("OLD_WEBHOOK_PATH")
 
     def subscribe_to_channel(self, channel_details, callback_url, subscribe):
