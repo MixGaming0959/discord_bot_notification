@@ -76,6 +76,8 @@ def webhooks():
                         return "OK"
                 PROCESSED_PAYLOADS.append(target)    
 
+                
+
                 Timer(20, wait_result, args=(video_id, channel_id)).start()
             else:
                 print(f"WebhookApp: {channel_name} https://youtube.com/watch?v={video_id}; Notification is older than 7 days. Skipping.")
@@ -188,8 +190,20 @@ def parse_notification(notification):
         else:
             if video_id is not None and channel_name is not None:
                 url = f"https://www.youtube.com/watch?v={video_id}"
-                db.cancelLiveTable(url, "cancelled")
-                print(f"WebhookApp: {url} is cancelled. Channel name: {channel_name}")
+                detail = db.cancelLiveTable(url, "deleted")
+                if len(detail) > 0:
+                    vtuber_ids = detail['vtuber_id']
+                    gen_ids = detail['gen_id']
+                    group_ids = detail['group_id']
+                    discord_details = db.getDiscordDetails(list(vtuber_ids), list(gen_ids), list(group_ids))
+                    for detail in set(tuple(d.items()) for d in discord_details):
+                        dic = dict(detail)
+                        if dic['is_NotifyOnLiveStart'] == 0:
+                            continue
+                        
+                    send_embed(dic['channel_id'], [detail])
+
+                print(f"WebhookApp: {url} is deleted. Channel name: {channel_name}")
             else:
                 print("WebhookApp: Raw notification received:", notification.decode("utf-8"))
     
@@ -260,17 +274,11 @@ def create_embed(data: list):
         
         embed = {
             "title": channel_name,
-            # "description": f"ตารางไลฟ์ ประจำวันที่ {v['start_at'].strftime('%d %B %Y')}", # 10 December 2024
             "description": f"{title} [Link]({url})", # 10 December 2024
             "color": random_color(),
             "thumbnail": {"url": vtuber_image},
             "image": {"url": image},
             "fields": [
-                # {
-                #     "name": "ชื่อไลฟ์",
-                #     "value": f"{title} [Link]({url})",
-                #     "inline": False,
-                # },
                 {
                     "name": "เวลาไลฟ์",
                     "value": f"{start_at} น.",

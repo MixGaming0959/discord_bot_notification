@@ -5,3 +5,8 @@ cryptography==44.0.0
 python-dotenv==1.0.1
 rapidfuzz==3.10.1
 bottle==0.13.2
+google-api-core==2.24.0
+google-api-python-client==2.155.0
+google-auth==2.38.0
+google-auth-httplib2==0.2.0      
+google-auth-oauthlib==1.2.1

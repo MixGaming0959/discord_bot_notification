@@ -292,7 +292,6 @@ async def getLiveTable(interaction: discord.Interaction, group_name: str, fetch_
         
         # Create the paginator view
         paginator = Paginator(embeds=listEmbed, timeout=60)
-
         # Send the first embed
         message = await interaction.followup.send(embed=listEmbed[0], view=paginator, ephemeral=True)
         paginator.message = message  # Store the message for later access
@@ -610,6 +609,66 @@ async def insertVideo(interaction: discord.Interaction, url: str):
     except Exception as e:
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
         return
+    
+# @client.tree.command(name='list-group', description="สำหรับแสดงชื่อค่ายทั้งหมด")
+# async def listGroup(interaction: discord.Interaction):
+#     await interaction.response.defer()
+#     try:
+#         txt = discordAuthChannel(interaction)
+#         if txt != None:
+#             await interaction.followup.send(txt)
+#             return
+
+#         list_group = db.listGroup()
+#         embed = discordEmbed(title="ชื่อค่ายทั้งหมด", color=random_color())
+#         for group in list_group:
+#             embed.add_field(name=group['name'], value="", inline=False)
+#         await interaction.followup.send(embed=embed)
+        
+#     except Exception as e:
+#         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
+#         return
+
+# @client.tree.command(name='list-gen-vtuber', description="สำหรับแสดงชื่อรุ่นและวี ตามค่ายที่เลือกทั้งหมด")
+# async def listGenVtuber(interaction: discord.Interaction, group_name: str):
+#     await interaction.response.defer()
+#     try:
+#         txt = discordAuthChannel(interaction)
+#         if txt != None:
+#             await interaction.followup.send(txt)
+#             return
+        
+
+#         list_gen = db.listGenByGroup(group_name)
+#         if list_gen == None:
+#             raise ValueError("ไม่พบค่ายที่ต้องการ")
+        
+#         list_embed = []
+#         for gen in list_gen:
+#             embed = discordEmbed(title=f"ชื่อรุ่นและวี ตามค่าย {gen['group_name']}", color=random_color())
+
+#             list_vtuber = db.listVtuberByGen("", gen['id'])
+#             vtuber_string = ""
+#             for vtuber in list_vtuber:
+#                 vtuber_string += f"{vtuber['name']}\n"
+#             embed.add_field(name=gen['name'], value="", inline=False)
+            
+#             list_embed.append(embed)
+
+#         for i in range(len(list_embed)):
+#             list_embed[i].set_footer(text=f"Page: {i+1}/{len(list_embed)}")
+#         # Create the paginator view
+#         paginator = Paginator(embeds=list_embed)
+        
+#         # await interaction.followup.send(embeds=lis_embed, ephemeral=True)
+
+#         # # Send the first embed
+#         message = await interaction.followup.send(embed=list_embed[0], view=paginator)
+#         paginator.message = message  # Store the message for later access
+        
+#     except Exception as e:
+#         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
+#         return
 
 @client.tree.command(name='set-bot', description="ลงทะเบียนบอทลง Channel นี้")
 @app_commands.choices(

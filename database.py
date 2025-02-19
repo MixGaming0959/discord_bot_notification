@@ -115,6 +115,7 @@ class DatabaseManager:
             from Vtuber v
             inner join groups g on v.groupsid = g.id
             where (UPPER(g.name) like UPPER('%{group_name}%') or UPPER(g.Another_Name) like UPPER('%{group_name}%')) and v.isenable = 1
+            order by g.id, v.genid
         """
         result = self.execute_query(query)
         if result:
@@ -137,13 +138,19 @@ class DatabaseManager:
         else:
             return None
 
-    def listVtuberByGen(self, gen_name: str):
+    def listVtuberByGen(self, gen_name: str, gen_id: str = None):
+        subquery = ""
+        if gen_id is not None:
+            subquery = f"where gen.id = {gen_id} and v.isenable = 1"
+        else:
+            subquery = f"where (UPPER(gen.name) like UPPER('%{gen_name}%') or UPPER(gen.Another_Name) like UPPER('%{gen_name}%')) and v.isenable = 1"
+            
         query = f"""
             select v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id, 
             CASE WHEN gen.Another_Name is null then gen.Name else gen.Another_Name end as gen_name
             from Vtuber v
             inner join generation gen on v.genid = gen.id
-            where (UPPER(gen.name) like UPPER('%{gen_name}%') or UPPER(gen.Another_Name) like UPPER('%{gen_name}%')) and v.isenable = 1
+            {subquery}
         """
         result = self.execute_query(query)
         if result:
@@ -279,7 +286,8 @@ class DatabaseManager:
             ["'https://www.youtube.com/watch?v={}'".format(x) for x in url]
         )
         query = f"""
-            select title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id, livetable.isnoti as is_noti
+            select title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, vtuber.name as channel_name, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id, livetable.isnoti as is_noti,
+            genid as gen_id, groupsid as group_id
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
             where url in ({conditon})
@@ -296,11 +304,14 @@ class DatabaseManager:
                             "start_at",
                             "colaborator",
                             "channel_tag",
+                            "channel_name",
                             "image",
                             "vtuber_id",
                             "live_status",
                             "channel_id",
                             "is_noti",
+                            "gen_id",
+                            "group_id",
                         ],
                         row,
                     )
@@ -364,7 +375,7 @@ class DatabaseManager:
             vtuber.channelid as channel_id, isnoti as is_noti, vtuber.name as channel_name
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
-            where livetable.livestatus in ('upcoming', 'live') and start_at > '{dt_past}' and start_at < '{dt_future}'
+            where livetable.livestatus in ('upcoming', 'live') and start_at >= '{dt_past}' and start_at <= '{dt_future}'
             order by start_at asc;
         """
         result = self.execute_query(query)
@@ -402,6 +413,8 @@ class DatabaseManager:
         """
         self.execute_many(query, [(livestatus, url)])
 
+        return self.getLiveTablebyURL([url])
+
     def listGroup(self):
         query = 'select CASE WHEN g.Another_Name is null then g.Name else g.Another_Name end as name from "groups" g'
         result = self.execute_query(query)
@@ -431,6 +444,7 @@ class DatabaseManager:
             select 
                 gen.id, 
                 CASE WHEN gen.Another_Name is null then gen.Name else gen.Another_Name end as name, 
+                CASE WHEN g.Another_Name is null then g.Name else g.Another_Name end as group_name,
                 gen.groupsid as group_id, gen.image
             from groups g
             inner join generation gen on gen.groupsid = g.id
@@ -439,7 +453,7 @@ class DatabaseManager:
         result = self.execute_query(query)
         if result:
             return [
-                dict(zip(["id", "name", "group_id", "image"], row)) for row in result
+                dict(zip(["id", "name", "group_id", "group_name", "image"], row)) for row in result
             ]
         else:
             return None
@@ -665,12 +679,12 @@ class DatabaseManager:
         group = self.getGroup(data["group_name"])
 
         query = f"""
-            insert into generation (id,name, groupsid, image)
-            values (?, ?, ?, ?);
+            insert into generation (id, name, groupsid)
+            values (?, ?, ?);
         """
         self.execute_many(
             query,
-            [(gen_uuid(), data["name"].title(), group["id"], data["image"])],
+            [(gen_uuid(), data["name"].title(), group["id"])],
         )
 
     def getGroup(self, groupName: str):

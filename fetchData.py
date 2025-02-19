@@ -4,10 +4,10 @@ import textwrap
 from database import DatabaseManager
 from googleapiclient.discovery import build  # type: ignore
 from googleapiclient.errors import HttpError  # type: ignore
-import google.auth
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+
+from google.auth.transport.requests import Request # type: ignore
+from google.oauth2.credentials import Credentials # type: ignore
+from google_auth_oauthlib.flow import InstalledAppFlow # type: ignore
 
 from get_env import GetEnv  # type: ignore
 
@@ -23,8 +23,12 @@ class LiveStreamStatus:
         self.api_key = env.youtube_api_key_env()
         self.TIME_ERROR = timedelta(minutes=30)
         self.LIMIT_TRUNCATE_STRING = 100
+        self.USE_API_KEY = env.get_env_bool('USE_API_KEY')
 
     def get_youtube_service(self):
+        if self.USE_API_KEY:
+            return build("youtube", "v3", developerKey=self.api_key)
+
         path_google = 'assets/google_assets/'
         creds = None
         # ลองโหลด token ที่เคยบันทึกไว้

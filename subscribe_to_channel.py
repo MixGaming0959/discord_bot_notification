@@ -9,8 +9,9 @@ class SubscribeToChannel:
 
         db_path = env.get_env_str('DB_PATH')
         db = DatabaseManager(db_path)
+        subscribe = env.get_env_str("SUBSCRIBE_ONLY")
         self.CHANNEL_IDS = []
-        for v in db.listVtuberByGroup("Pixela"):
+        for v in db.listVtuberByGroup(subscribe):
             self.CHANNEL_IDS.append({"channel_id": v["channel_id"], "channel_tag": v["channel_tag"]})
 
         self.PUBSUBHUBBUB_URL = env.get_env_str("PUBSUBHUBBUB_URL")

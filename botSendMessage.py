@@ -108,8 +108,10 @@ class BotSendMessage:
             # start_at = (datetime.strptime(v['start_at'], "%Y-%m-%d %H:%M:%S")).strftime('%H:%M')
             # now - start_at to hour and minute
             dt = self.db.datetime_gmt(v["start_at"]) - self.db.datetime_gmt(datetime.now())
-            hour, minute = RoundUp(dt.seconds / 3600), RoundUp(dt.seconds / 60) % 60
+            hour, minute = dt.seconds // 3600, RoundUp(dt.seconds / 60) % 60
             # 1 ชั่วโมง 59 นาที -> 2 ชั่วโมง
+            if minute == 0:
+                hour = RoundUp(dt.seconds / 3600)
 
             timeStr = ""
             if hour > 0:
@@ -119,7 +121,6 @@ class BotSendMessage:
             if timeStr == "":
                 timeStr = "0 นาที"
             
-
             title = v["title"] + f" กำลังจะเริ่มไลฟ์ในอีก {timeStr}"
             channel_name = v["channel_name"]
             channel_tag = v["channel_tag"]
@@ -162,6 +163,8 @@ class BotSendMessage:
 
 
 if __name__ == "__main__":
-    bot = BotSendMessage()
+    env = GetEnv()
+    # sub = SubscribeToChannel()
+    botSendMSG = BotSendMessage(env.discord_token_env())
 
-    bot.run_send_message()
+    botSendMSG.run_send_message()
