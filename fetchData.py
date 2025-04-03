@@ -474,14 +474,14 @@ class LiveStreamStatus:
             request = youtube.playlistItems().list(
                 part="contentDetails",
                 playlistId=playlist_id,
-                maxResults=20
+                maxResults=50
             )
             response = request.execute()
             # print(member_playlist)
             request_member = youtube.playlistItems().list(
                 part="contentDetails",
                 playlistId=member_playlist,
-                maxResults=10
+                maxResults=25
             )
             try:
                 response_member = request_member.execute()
@@ -499,8 +499,8 @@ class LiveStreamStatus:
         except Exception as e:
             raise e
         result_video_id = []
-        timeBefore = self.db.datetime_gmt(datetime.now() + timedelta(days=14))
-        timeAfter = self.db.datetime_gmt(datetime.now() - timedelta(days=14))
+        timeBefore = self.db.datetime_gmt(datetime.now() + timedelta(days=30))
+        timeAfter = self.db.datetime_gmt(datetime.now() - timedelta(days=30))
         if "items" in response and response["items"]:
             # print("normal")
             for item in response["items"]:
