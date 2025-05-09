@@ -28,13 +28,12 @@ class BotSendMessage:
         self.SEND_MSG_WHEN_START = env.get_env_bool('SEND_MSG_WHEN_START')
         # Database
 
-        db_path = env.get_env_str('DB_PATH')
-        self.db = DatabaseManager(db_path)
+        self.db = DatabaseManager()
         self.AUTO_CHECK = env.get_env_int('AUTO_CHECK')
         self.ISUPDATE_PATH = env.get_env_str('ISUPDATE_PATH')
         self.MAX_EMBED_SIZE = 4000
 
-        self.liveStreamStatus = LiveStreamStatus(db_path, self.AUTO_CHECK)
+        self.liveStreamStatus = LiveStreamStatus(self.AUTO_CHECK)
 
     def get_live_videos(self):
         result = asyncio.run(self.liveStreamStatus.get_before_live_stream())

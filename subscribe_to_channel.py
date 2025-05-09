@@ -7,8 +7,7 @@ class SubscribeToChannel:
     def __init__(self):
         env = GetEnv()
 
-        db_path = env.get_env_str('DB_PATH')
-        db = DatabaseManager(db_path)
+        db = DatabaseManager()
         subscribe = env.get_env_str("SUBSCRIBE_ONLY")
         listSubscribe = []
         listSubscribe = subscribe.split(",")

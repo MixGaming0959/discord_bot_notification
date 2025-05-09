@@ -1,4 +1,6 @@
-import sqlite3
+import mysql.connector
+from mysql.connector import Error
+
 from datetime import datetime, timedelta, timezone
 from os import environ, path
 from uuid import uuid4
@@ -13,14 +15,18 @@ def gen_uuid():
 
 
 class DatabaseManager:
-    def __init__(self, db_name: str):
+    def __init__(self):
         env = GetEnv()
         self.ALREADY_LIVE = env.get_env_int("ALREADY_LIVE")
         self.BEFORE_LIVE = env.get_env_int("BEFORE_LIVE")
         self.GMT = env.get_env_int("GMT")
         self.CLEAR_LIVE_TABLE = env.get_env_str("CLEAR_LIVE_TABLE")
         # db_path = path.join(path.dirname(__file__), db_name)
-        self.db_name = path.join(path.dirname(__file__), db_name)
+
+        self.host = env.get_env_str('DB_HOST')
+        self.user = env.get_env_str('DB_USER')
+        self.password = env.get_env_str('DB_PASSWORD')
+        self.database = env.get_env_str('DB_NAME')
 
     def datetime_gmt(self, datetime: datetime) -> datetime:
         tz = timezone(timedelta(hours=self.GMT))
@@ -28,20 +34,25 @@ class DatabaseManager:
         return new_time
 
     def connect(self):
-        return sqlite3.connect(self.db_name)
+        return mysql.connector.connect(
+            host=self.host,
+            user=self.user,
+            password=self.password,
+            database=self.database
+        )
 
     def execute_query(self, query, params=None):
         with self.connect() as conn:
             try:
                 cursor = conn.cursor()
-                if params:
-                    cursor.execute(query, params)
-                else:
-                    cursor.execute(query)
-                return cursor.fetchall()
-            except Exception as e:
+                cursor.execute(query, params or ())
+                result = cursor.fetchall()
+                return result
+            except Error as e:
                 conn.rollback()
                 raise e
+            finally:
+                cursor.close()
 
     def execute_many(self, query, data):
         with self.connect() as conn:
@@ -49,9 +60,11 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 cursor.executemany(query, data)
                 conn.commit()
-            except Exception as e:
+            except Error as e:
                 conn.rollback()
                 raise e
+            finally:
+                cursor.close()
 
     def getVtuber(self, channel_id: str):
         query = f"""
@@ -782,7 +795,7 @@ if __name__ == "__main__":
     load_dotenv()
     from os import environ
 
-    db = DatabaseManager(environ.get("DB_PATH"))
+    db = DatabaseManager()
 
     print(db.getLiveTable_30())
 

@@ -10,5 +10,3 @@ RUN pip install -r requirements.txt
 COPY assets/ ./assets/
 COPY *.py .
 COPY .env .env
-
-CMD ["python", "./main.py"]

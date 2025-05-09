@@ -21,13 +21,12 @@ def random_color():
     # Generate a random color as an integer value
     return discord.Color(randint(0, 0xFFFFFF))
 
-db_path = env.get_env_str('DB_PATH')
-db = DatabaseManager(db_path)
+db = DatabaseManager()
 AUTO_CHECK = env.get_env_str('AUTO_CHECK')
 ISUPDATE_PATH = env.get_env_str('ISUPDATE_PATH')
 MAX_EMBED_SIZE = 4000
 
-liveStreamStatus = fetchData.LiveStreamStatus(db_path, AUTO_CHECK)
+liveStreamStatus = fetchData.LiveStreamStatus(AUTO_CHECK)
 
 def timeNowFunc():
     return liveStreamStatus.db.datetime_gmt(datetime.now())

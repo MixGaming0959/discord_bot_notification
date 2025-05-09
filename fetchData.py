@@ -14,8 +14,8 @@ from get_env import GetEnv  # type: ignore
 SCOPES = ["https://www.googleapis.com/auth/youtube.readonly"]
 
 class LiveStreamStatus:
-    def __init__(self, db_path: str, autoCheck: bool = False):
-        self.db = DatabaseManager(db_path)
+    def __init__(self, autoCheck: bool = False):
+        self.db = DatabaseManager()
         self.autoCheck = autoCheck
 
         env = GetEnv()

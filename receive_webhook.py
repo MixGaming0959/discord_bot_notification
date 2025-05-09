@@ -26,15 +26,14 @@ SEND_MSG_WHEN_START = env.get_env_bool('SEND_MSG_WHEN_START')
 # Database
 from database import DatabaseManager
 
-db_path = env.get_env_str('DB_PATH')
-db = DatabaseManager(db_path)
+db = DatabaseManager()
 AUTO_CHECK = env.get_env_int('AUTO_CHECK')
 ISUPDATE_PATH = env.get_env_str('ISUPDATE_PATH')
 MAX_EMBED_SIZE = 4000
 
 # FetchData
 from fetchData import LiveStreamStatus
-liveStreamStatus = LiveStreamStatus(db_path, AUTO_CHECK)
+liveStreamStatus = LiveStreamStatus(AUTO_CHECK)
 
 @app.route('/api/v1/webhooks', method=['GET', 'POST'])
 def webhooks():
