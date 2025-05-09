@@ -31,7 +31,8 @@ class GetEnv:
         AUTO_GET_NGROK_URL = self.get_env_bool('AUTO_GET_NGROK_URL')
         if AUTO_GET_NGROK_URL:
             # เรียก API ของ Ngrok
-            response = requests.get("http://127.0.0.1:4040/api/tunnels")
+            url_ngrok = self.get_env_str('URL')
+            response = requests.get(f"{url_ngrok}:4040/api/tunnels")
             data = response.json()
 
             # ดึง URL ออกมา
@@ -41,4 +42,8 @@ class GetEnv:
     
     def webhook_port_env(self) -> int:
         return int(environ.get("WEBHOOK_PORT"))
+    
+if __name__ == "__main__":
+    env = GetEnv()
+    print(env.webhook_url_env())
     

@@ -246,7 +246,7 @@ class DatabaseManager:
             data["start_at"] = dt.strftime("%Y-%m-%d %H:%M:%S")
 
         # Auto Delete
-        # self.clearLiveTable()
+        self.clearLiveTable()
         return data
 
     def clearLiveTable(self):
