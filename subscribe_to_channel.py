@@ -1,3 +1,4 @@
+import asyncio
 import requests # type: ignore
 from database import DatabaseManager 
 
@@ -59,6 +60,7 @@ class SubscribeToChannel:
                 break
             except Exception as e:
                 print(f"An error occurred: {e}")
+                asyncio.run(asyncio.sleep(1))
 
         print("Run subscribe_to_channel Complete!!!")
 

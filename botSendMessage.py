@@ -157,8 +157,12 @@ class BotSendMessage:
     def run_send_message(self):
         print("BotSendMSG: Start Loop")
         while True:
-            self.get_live_videos()
-            asyncio.run(asyncio.sleep(60))
+            try:
+                self.get_live_videos()
+                asyncio.run(asyncio.sleep(60))
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                asyncio.run(asyncio.sleep(1))
 
 
 if __name__ == "__main__":
