@@ -6,6 +6,7 @@ from get_env import GetEnv  # type: ignore
 class SubscribeToChannel:
     def __init__(self):
         env = GetEnv()
+        self.env = env
 
         db = DatabaseManager()
         subscribe = env.get_env_str("SUBSCRIBE_ONLY")
@@ -17,7 +18,6 @@ class SubscribeToChannel:
                 self.CHANNEL_IDS.append({"channel_id": v["channel_id"], "channel_tag": v["channel_tag"]})
 
         self.PUBSUBHUBBUB_URL = env.get_env_str("PUBSUBHUBBUB_URL")
-        self.WEBHOOK_URL = env.webhook_url_env()
         self.OLD_WEBHOOK_PATH = env.get_env_str("OLD_WEBHOOK_PATH")
 
     def subscribe_to_channel(self, channel_details, callback_url, subscribe):
@@ -31,7 +31,7 @@ class SubscribeToChannel:
             "hub.mode": subscribe,
             "hub.verify": "async",
         }
-        # print(PUBSUBHUBBUB_URL + " " + str(data))
+        
         try:
             response = requests.post(self.PUBSUBHUBBUB_URL, data=data)
             if response.status_code != 202:
@@ -42,17 +42,23 @@ class SubscribeToChannel:
             print(f"An error occurred: {e}")
 
     def run_subscribe_to_channel(self):
-        with open(self.OLD_WEBHOOK_PATH, "r") as file: 
-            old_webhook = file.read()
-            if old_webhook != self.WEBHOOK_URL:
-                for channel_id in self.CHANNEL_IDS:
-                    self.subscribe_to_channel(channel_id, old_webhook, "unsubscribe")
-                for v in self.CHANNEL_IDS:
-                    # print(v)
-                    self.subscribe_to_channel(v, self.WEBHOOK_URL, "subscribe")
+        while True:
+            try:
+                self.WEBHOOK_URL = self.env.webhook_url_env()
+                with open(self.OLD_WEBHOOK_PATH, "r") as file: 
+                    old_webhook = file.read()
+                    if old_webhook != self.WEBHOOK_URL:
+                        for channel_id in self.CHANNEL_IDS:
+                            self.subscribe_to_channel(channel_id, old_webhook, "unsubscribe")
+                        for v in self.CHANNEL_IDS:
+                            # print(v)
+                            self.subscribe_to_channel(v, self.WEBHOOK_URL, "subscribe")
 
-        with open(self.OLD_WEBHOOK_PATH, "w") as file:
-            file.write(self.WEBHOOK_URL)
+                with open(self.OLD_WEBHOOK_PATH, "w") as file:
+                    file.write(self.WEBHOOK_URL)
+                break
+            except Exception as e:
+                print(f"An error occurred: {e}")
 
         print("Run subscribe_to_channel Complete!!!")
 

@@ -126,7 +126,7 @@ class DatabaseManager:
                 v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id, 
                 CASE WHEN g.Another_Name is null then g.Name else g.Another_Name end as group_name
             from Vtuber v
-            inner join groups g on v.groupsid = g.id
+            inner join `groups` g on v.groupsid = g.id
             where (UPPER(g.name) like UPPER('%{group_name}%') or UPPER(g.Another_Name) like UPPER('%{group_name}%')) and v.isenable = 1
             order by g.id, v.genid
         """
@@ -189,7 +189,7 @@ class DatabaseManager:
     def insertLiveTable(self, data: dict):
         query = """
             INSERT INTO LIVETABLE (Title, URL, StartAt, Colaborator, VtuberID, Image, LiveStatus)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
         params = [
             (
@@ -206,7 +206,6 @@ class DatabaseManager:
             query,
             params,
         )
-        # print(query, params)
 
     def checkLiveTable(self, data: dict):
         query = """
@@ -214,7 +213,7 @@ class DatabaseManager:
                 title, url, startat as start_at, colaborator, vtuber.youtubetag as channel_tag, livetable.image, vtuber.id as vtuber_id, livetable.livestatus as live_status, vtuber.channelid as channel_id, livetable.isnoti as is_noti
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
-            where url = ?
+            where url = %s
             order by startat desc
             limit 1
         """
@@ -242,7 +241,6 @@ class DatabaseManager:
         ]
         if len(result) == 0:
             self.insertLiveTable(data)
-            # print("Insert Live Table Success")
             return data
         else:
             if (
@@ -252,11 +250,11 @@ class DatabaseManager:
                 or result[0]["live_status"] != data["live_status"]
             ):
                 self.updateLiveTable(data)
-                # print("Update Live Table Success")
 
-        if type(result[0]["start_at"]) == str:
-            dt = datetime.fromisoformat(result[0]["start_at"])
-            data["start_at"] = dt.strftime("%Y-%m-%d %H:%M:%S")
+        # if type(result[0]["start_at"]) == str:
+        #     date_string = result[0]["start_at"]
+        #     dt = datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
+        #     data["start_at"] = dt.strftime("%Y-%m-%d %H:%M:%S")
 
         # Auto Delete
         self.clearLiveTable()
@@ -264,18 +262,19 @@ class DatabaseManager:
 
     def clearLiveTable(self):
         query = f"""
-            delete from livetable
-            where date(startat) <= DATE('now', '-{self.CLEAR_LIVE_TABLE} day')
+            delete FROM livetable
+            WHERE DATE(startat) <= CURDATE() - INTERVAL {self.CLEAR_LIVE_TABLE} DAY;
+
         """
         self.execute_query(query)
 
     def updateLiveTable(self, data: dict):
         query = """
             update livetable
-            set title = ?, url = ?, startat = ?, colaborator = ?, image = ?, livestatus = ?, isnoti = ?
-            where url = ?
+            set title = %s, url = %s, startat = %s, colaborator = %s, image = %s, livestatus = %s, isnoti = %s
+            where url = %s
         """
-        # is_noti in data ?
+        # is_noti in data %s
 
         isNoti = data["is_noti"] if "is_noti" in data else False
         self.execute_many(
@@ -388,7 +387,7 @@ class DatabaseManager:
             vtuber.channelid as channel_id, isnoti as is_noti, vtuber.name as channel_name
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
-            where livetable.livestatus in ('upcoming', 'live') and start_at >= '{dt_past}' and start_at <= '{dt_future}'
+            where livetable.livestatus in ('upcoming', 'live') and startat >= '{dt_past}' and startat <= '{dt_future}'
             order by start_at asc;
         """
         result = self.execute_query(query)
@@ -421,15 +420,15 @@ class DatabaseManager:
     def cancelLiveTable(self, url: str, livestatus: str):
         query = f"""
             update livetable
-            set livestatus = ?
-            where url = ?
+            set livestatus = %s
+            where url = %s
         """
         self.execute_many(query, [(livestatus, url)])
 
         return self.getLiveTablebyURL([url])
 
     def listGroup(self):
-        query = 'select CASE WHEN g.Another_Name is null then g.Name else g.Another_Name end as name from "groups" g'
+        query = 'select CASE WHEN g.Another_Name is null then g.Name else g.Another_Name end as name from `groups` g'
         result = self.execute_query(query)
         if result:
             return [dict(zip(["name"], row)) for row in result]
@@ -459,7 +458,7 @@ class DatabaseManager:
                 CASE WHEN gen.Another_Name is null then gen.Name else gen.Another_Name end as name, 
                 CASE WHEN g.Another_Name is null then g.Name else g.Another_Name end as group_name,
                 gen.groupsid as group_id, gen.image
-            from groups g
+            from `groups` g
             inner join generation gen on gen.groupsid = g.id
             where UPPER(g.name) like UPPER('%{group_name}%') or UPPER(g.Another_Name) like UPPER('%{group_name}%');
         """
@@ -475,7 +474,7 @@ class DatabaseManager:
         uuid = gen_uuid()
         query = f"""
             insert into discordserver (id, guildid, channelid, is_active)
-            values ('{uuid}', ?, ?, ?);
+            values ('{uuid}', %s, %s, %s);
         """
         self.execute_many(
             query,
@@ -486,8 +485,8 @@ class DatabaseManager:
     def updateDiscordServer(self, data: dict):
         query = f"""
             update discordserver
-            set is_active = ?
-            where guildid = ? and channelid = ?
+            set is_active = %s
+            where guildid = %s and channelid = %s
         """
         self.execute_many(
             query,
@@ -499,7 +498,7 @@ class DatabaseManager:
     ) -> str:
         query = f"""
             select id from discordserver
-            where guildid = ? and channelid = ?
+            where guildid = %s and channelid = %s
             limit 1;
         """
         result = self.execute_query(
@@ -525,8 +524,8 @@ class DatabaseManager:
     def insertDiscordMapping(self, data: dict):
         uuid = gen_uuid()
         query = f"""
-            insert into discord_mapping (id, discord_id, defaultvtuber_id, defaultgen_id, defaultgroup_id, is_NotifyOnLiveStart, Is_PreAlertEnabled)
-            values (?, ?, ?, ?, ?, ?, ?);
+            insert into discord_mapping (id, discord_id, ref_id, type_ref, is_NotifyOnLiveStart, Is_PreAlertEnabled)
+            values (%s, %s, %s, %s, %s, %s);
         """
         self.execute_many(
             query,
@@ -534,9 +533,8 @@ class DatabaseManager:
                 (
                     uuid,
                     data["discord_id"],
-                    data["default_vtuber_id"],
-                    data["default_gen_id"],
-                    data["default_group_id"],
+                    data["ref_id"],
+                    data["type_ref"],
                     data["is_NotifyOnLiveStart"],
                     data["Is_PreAlertEnabled"],
                 )
@@ -547,16 +545,15 @@ class DatabaseManager:
     def updateDiscordMapping(self, data: dict):
         query = f"""
             update discord_mapping
-            set defaultvtuber_id = ?, defaultgen_id = ?, defaultgroup_id = ?, is_NotifyOnLiveStart = ?, Is_PreAlertEnabled = ?
-            where discord_id = ?
+            set ref_id = %s, type_ref = %s = %s, is_NotifyOnLiveStart = %s, Is_PreAlertEnabled = %s
+            where discord_id = %s
         """
         self.execute_many(
             query,
             [
                 (
-                    data["default_vtuber_id"],
-                    data["default_gen_id"],
-                    data["default_group_id"],
+                    data["ref_id"],
+                    data["type_ref"],
                     data["is_NotifyOnLiveStart"],
                     data["Is_PreAlertEnabled"],
                     data["discord_id"],
@@ -567,7 +564,7 @@ class DatabaseManager:
     def checkDiscordMapping(self, data: dict) -> str:
         query = f"""
             select id from discord_mapping
-            where discord_id = ?
+            where discord_id = %s
             limit 1;
         """
         result = self.execute_query(query, (data["discord_id"],))
@@ -596,8 +593,8 @@ class DatabaseManager:
 
         query = f"""
             UPDATE VTUBER
-            SET Image = ?
-            WHERE YoutubeTag = ?
+            SET Image = %s
+            WHERE YoutubeTag = %s
         """
         self.execute_many(
             query,
@@ -636,7 +633,7 @@ class DatabaseManager:
 
         query = f"""
             insert into vtuber (ID, Name, GenID, GroupsID, YoutubeTag, Image, ChannelID, IsEnable)
-            values (?, ?, ?, ?, ?, ?, ?, ?);
+            values (%s, %s, %s, %s, %s, %s, %s, %s);
         """
         self.execute_many(
             query,
@@ -657,8 +654,8 @@ class DatabaseManager:
     def updateVtuber(self, channel_id:str, data: dict):
         query = f"""
             UPDATE VTUBER
-            SET Name = ?, YoutubeTag = ?, Image = ?
-            WHERE ChannelID = ?
+            SET Name = %s, YoutubeTag = %s, Image = %s
+            WHERE ChannelID = %s
         """
         self.execute_many(
             query,
@@ -679,7 +676,7 @@ class DatabaseManager:
             CASE WHEN g1.Another_Name is null then g1.Name else g1.Another_Name end as name,
             g1.groupsid as groups_id
             from generation g1
-            inner join groups g2 on g1.groupsid = g2.id
+            inner join `groups` g2 on g1.groupsid = g2.id
             WHERE (UPPER(g1.Name) like UPPER('%{genName}%') OR UPPER(g1.Another_Name) like UPPER('%{genName}%') AND (UPPER(g2.Name) like UPPER('%{groupName}%') OR UPPER(g2.Another_Name) like UPPER('%{groupName}%')))
         """
         result = self.execute_query(query)
@@ -693,7 +690,7 @@ class DatabaseManager:
 
         query = f"""
             insert into generation (id, name, groupsid)
-            values (?, ?, ?);
+            values (%s, %s, %s);
         """
         self.execute_many(
             query,
@@ -704,11 +701,10 @@ class DatabaseManager:
         query = f"""
             select g.id, 
             CASE WHEN g.Another_Name is null then g.Name else g.Another_Name end as name
-            from groups g
+            from `groups` g
             where UPPER(g.name) like UPPER('%{groupName}%') or UPPER(g.Another_Name) like UPPER('%{groupName}%')
             limit 1;
         """
-        # print(query)
         result = self.execute_query(query)
         if result:
             return dict(zip(["id", "name"], result[0]))
@@ -717,8 +713,8 @@ class DatabaseManager:
 
     def insertGroup(self, name: str):
         query = f"""
-            insert into groups (id,name)
-            values (?, ?);
+            insert into `groups` (id,name)
+            values (%s, %s);
         """
         self.execute_many(
             query,
@@ -744,18 +740,19 @@ class DatabaseManager:
             select 
                 ds.id, ds.guildid as guild_id, ds.channelid as channel_id, dm.is_NotifyOnLiveStart, dm.is_PreAlertEnabled
             from discordserver ds
-            inner join discord_mapping dm on ds.id = dm.discord_id and ds.is_active = 1 and (dm.is_NotifyOnLiveStart = 1 or dm.is_PreAlertEnabled = 1)
+            inner join discord_mapping dm on ds.id = dm.discord_id
+            where ds.is_active = 1 and (dm.is_NotifyOnLiveStart = 1 or dm.is_PreAlertEnabled = 1)
         """
         conditions = []
         if vtuber_id:
             vtuber_id = ",".join(["'{}'".format(x) for x in vtuber_id])
-            conditions.append(f" dm.DefaultVtuber_ID in ({vtuber_id})")
+            conditions.append(f" (dm.ref_id in ({vtuber_id}) and dm.type_ref = 'vtuber')")
         if gen_id:
             gen_id = ",".join(["'{}'".format(x) for x in gen_id])
-            conditions.append(f" dm.DefaultGen_ID in ({gen_id})")
+            conditions.append(f" (dm.ref_id in ({gen_id}) and dm.type_ref = 'gen')")
         if group_id:
-            group_id = ",".join(["'{}'".format(x) for x in group_id])
-            conditions.append(f" dm.DefaultGroup_ID in ({group_id})")
+            group_id = ",".join(["'{}'".ref_id(x) for x in group_id])
+            conditions.append(f" (dm.ref_id in ({group_id}) and dm.type_ref = 'group')")
         if conditions:
             query += " where " + " or ".join(conditions)
         result = self.execute_query(query)
@@ -796,8 +793,6 @@ if __name__ == "__main__":
     from os import environ
 
     db = DatabaseManager()
+    db.connect()
 
-    print(db.getLiveTable_30())
-
-    # print("123 " + " and ".join(["1", "2"]))
-    # print(db.getLiveTable('SisiraHydrangea'))
+    print(db.checkLiveTable({"url": "https://www.youtube.com/watch?v=dq98g0XQw1w"}))

@@ -157,9 +157,8 @@ class LiveStreamStatus:
                 live_details = item["liveStreamingDetails"] if "liveStreamingDetails" in item else ""
                 if "actualStartTime" in live_details:
                     # ถ้าเริ่มถ่ายทอดสดแล้ว แปลงเวลาที่เริ่มเป็น datetime object
-                    start_at = datetime.fromisoformat(
-                        live_details["actualStartTime"][:-1]
-                    ).replace(tzinfo=timezone.utc)
+                    dt = datetime.strptime(live_details["actualStartTime"][:-1], "%Y-%m-%dT%H:%M:%S")
+                    start_at = dt.replace(tzinfo=timezone.utc)
                     data["start_at"] = self.db.datetime_gmt(start_at)
                     # current_time = datetime.now(timezone.utc)
                     # elapsed_time = current_time - actual_start_time
@@ -239,7 +238,9 @@ class LiveStreamStatus:
             return result
         for data in video:
             video_details = {}
-            dt = datetime.fromisoformat(data["start_at"])
+            # dt = datetime.fromisoformat(data["start_at"])
+            dt = data["start_at"]
+            dt = dt.replace(tzinfo=timezone.utc)  # or use another timezone
             data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
             found = False
             for i in time_list:
@@ -305,7 +306,7 @@ class LiveStreamStatus:
         if video == None:
             return f"ไม่มีการอัพเดทข้อมูลตาราง {channel_tag}..."
         for data in video:
-            dt = datetime.fromisoformat(data["start_at"])
+            dt = data["start_at"]
             data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
             timeNow = datetime.strptime(
                 self.db.datetime_gmt(datetime.now()).strftime("%Y-%m-%d"), "%Y-%m-%d"
@@ -538,8 +539,8 @@ class LiveStreamStatus:
         
         for data in video:
             video_details = {}
-            dt = datetime.fromisoformat(data["start_at"])
-            data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
+            # dt = data["start_at"]
+            # data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
             # print(data["is_noti"])
             if data['is_noti'] == 1:
                 continue
@@ -725,7 +726,7 @@ class LiveStreamStatus:
             return None
 
 if __name__ == "__main__":
-    lv = LiveStreamStatus("assets/video.db", True)
+    lv = LiveStreamStatus(True)
 
     x = lv.get_channel_details("UCkEcY4RbLYs2AF45nhkyjtw")
     print(x)

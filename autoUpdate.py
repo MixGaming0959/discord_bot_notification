@@ -9,9 +9,8 @@ env = GetEnv()
 
 # ฟังก์ชันสำหรับอัปเดตข้อมูลการสตรีม
 async def update_live_table():
-    DB_PATH = env.get_env_str('DB_PATH')
     ISUPDATE_PATH = env.get_env_str('ISUPDATE_PATH')
-    live = LiveStreamStatus(DB_PATH, env.get_env_bool('AUTO_CHECK'))
+    live = LiveStreamStatus(env.get_env_bool('AUTO_CHECK'))
 
     date_format = "%Y-%m-%d %H:%M:%S%z"
     while True:

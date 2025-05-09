@@ -4,7 +4,6 @@ key.txt
 .env.local
 Run Main.bat
 Run ngrok.bat
-assets/google
 Log
-\assets
-\test
+assets/
+test/
