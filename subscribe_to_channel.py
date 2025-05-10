@@ -9,14 +9,9 @@ class SubscribeToChannel:
         env = GetEnv()
         self.env = env
 
-        db = DatabaseManager()
+        self.db = DatabaseManager()
         subscribe = env.get_env_str("SUBSCRIBE_ONLY")
-        listSubscribe = []
-        listSubscribe = subscribe.split(",")
-        self.CHANNEL_IDS = []
-        for s in listSubscribe:
-            for v in db.listVtuberByGroup(s):
-                self.CHANNEL_IDS.append({"channel_id": v["channel_id"], "channel_tag": v["channel_tag"]})
+        self.listSubscribe = subscribe.split(",")
 
         self.PUBSUBHUBBUB_URL = env.get_env_str("PUBSUBHUBBUB_URL")
         self.OLD_WEBHOOK_PATH = env.get_env_str("OLD_WEBHOOK_PATH")
@@ -42,29 +37,33 @@ class SubscribeToChannel:
         except Exception as e:
             print(f"An error occurred: {e}")
 
-    def run_subscribe_to_channel(self):
+    async def run_subscribe_to_channel(self):
+        print("SubscribeToChannel: Start Loop")
         while True:
             try:
                 self.WEBHOOK_URL = self.env.webhook_url_env()
-                with open(self.OLD_WEBHOOK_PATH, "r") as file: 
-                    old_webhook = file.read()
-                    if old_webhook != self.WEBHOOK_URL:
-                        for channel_id in self.CHANNEL_IDS:
-                            self.subscribe_to_channel(channel_id, old_webhook, "unsubscribe")
-                        for v in self.CHANNEL_IDS:
-                            # print(v)
-                            self.subscribe_to_channel(v, self.WEBHOOK_URL, "subscribe")
 
-                with open(self.OLD_WEBHOOK_PATH, "w") as file:
-                    file.write(self.WEBHOOK_URL)
-                break
+                channel_ids = []
+                for s in self.listSubscribe:
+                    list_vtuber = self.db.listVtuberByGroup(s, False)
+                    if list_vtuber is None:
+                        continue
+                    for v in list_vtuber:
+                        print(f"Channel Tag: {v['channel_tag']}")
+                        channel_ids.append({"channel_id": v["channel_id"], "channel_tag": v["channel_tag"]})
+
+                for channel in channel_ids:
+                    self.subscribe_to_channel(channel, self.WEBHOOK_URL, "subscribe")
+                    self.db.update_subscribe_notify(channel["channel_id"], True)
+
+                # asyncio.sleep(60)
+                await asyncio.sleep(60)
             except Exception as e:
                 print(f"An error occurred: {e}")
-                asyncio.run(asyncio.sleep(1))
-
-        print("Run subscribe_to_channel Complete!!!")
+                # asyncio.sleep(1)
+                await asyncio.sleep(1)
 
 if __name__ == "__main__":
     subscribe_to_channel = SubscribeToChannel()
 
-    subscribe_to_channel.run_subscribe_to_channel()
+    asyncio.run(subscribe_to_channel.run_subscribe_to_channel())

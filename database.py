@@ -120,7 +120,7 @@ class DatabaseManager:
         else:
             return None
 
-    def listVtuberByGroup(self, group_name: str):
+    def listVtuberByGroup(self, group_name: str, subscribe_notify: bool = None):
         query = f"""
             select 
                 v.id, v.name, v.youtubetag as channel_tag, v.image, channelid as channel_id, 
@@ -128,8 +128,13 @@ class DatabaseManager:
             from Vtuber v
             inner join `groups` g on v.groupsid = g.id
             where (UPPER(g.name) like UPPER('%{group_name}%') or UPPER(g.Another_Name) like UPPER('%{group_name}%')) and v.isenable = 1
-            order by g.id, v.genid
         """
+        if subscribe_notify is not None:
+            query += f"""
+                and subscribe_noti = {1 if subscribe_notify else 0}
+            """
+
+        query += " order by g.id, v.genid;"
         result = self.execute_query(query)
         if result:
             return [
@@ -664,6 +669,22 @@ class DatabaseManager:
                     data["channel_name"],
                     data["channel_tag"].title(),
                     data["image"],
+                    channel_id,
+                )
+            ],
+        )
+    
+    def update_subscribe_notify(self, channel_id:str, subscribe_noti: bool = True):
+        query = f"""
+            UPDATE VTUBER
+            SET subscribe_noti = %s
+            WHERE ChannelID = %s
+        """
+        self.execute_many(
+            query,
+            [
+                (
+                    subscribe_noti,
                     channel_id,
                 )
             ],

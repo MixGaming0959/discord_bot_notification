@@ -13,7 +13,6 @@ app = Bottle()
 from get_env import GetEnv  # type: ignore
 env = GetEnv()
 # Constants
-WEBHOOK_URL = env.webhook_url_env()
 WEBHOOK_PORT = env.webhook_port_env()
 YOUTUBE_API_KEY = env.youtube_api_key_env()
 DISCORD_BOT_TOKEN = env.discord_token_env()

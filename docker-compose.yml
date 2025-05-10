@@ -1,17 +1,18 @@
 services:
-  static-site:
-    image: dockersamples/static-site
-    build: .
-    ports:
-      - "80:80"
-    restart: always
+  # static-site:
+  #   image: dockersamples/static-site
+  #   build: .
+  #   ports:
+  #     - "80:80"
+  #   restart: always
     
   ngrok:
     image: ngrok/ngrok:latest
     command:
       - "http"
-      - "http://host.docker.internal:80"
+      # - "http://host.docker.internal:80"
       - "--url=pleasant-stunning-owl.ngrok-free.app"
+      - "webhook:5000"
     environment:
       NGROK_AUTHTOKEN: 2q18JJ95wEMhumPXheVhnKnpcu5_2MTCju2dwr1ZJM5GUPzvF
     ports:
@@ -27,6 +28,7 @@ services:
       - .env              
     volumes:
       - ./assets:/youtube_noti/assets  
+      - ./:/youtube_noti
     restart: always     
     command: python botSendMessage.py
 
@@ -39,6 +41,7 @@ services:
       - .env              
     volumes:
       - ./assets:/youtube_noti/assets  
+      - ./:/youtube_noti 
     restart: always     
     command: python botDiscord.py
 
@@ -51,7 +54,10 @@ services:
       - .env              
     volumes:
       - ./assets:/youtube_noti/assets  
-    restart: always     
+      - ./:/youtube_noti
+    restart: always    
+    ports:
+      - "5000:5000"   # เพิ่มบรรทัดนี้ 
     command: python receive_webhook.py
 
   subscribe-channel:
@@ -63,5 +69,6 @@ services:
       - .env              
     volumes:
       - ./assets:/youtube_noti/assets  
-    restart: on-failure     
+      - ./:/youtube_noti
+    restart: always    
     command: python subscribe_to_channel.py

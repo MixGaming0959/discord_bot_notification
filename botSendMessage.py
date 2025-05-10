@@ -17,8 +17,6 @@ class BotSendMessage:
     def __init__(self, discord_token: str):
         env = GetEnv()
 
-        self.WEBHOOK_URL = env.webhook_url_env()
-        self.WEBHOOK_PORT = env.webhook_port_env()
         self.YOUTUBE_API_KEY = env.youtube_api_key_env()
         self.DISCORD_BOT_TOKEN = discord_token
         self.BEFORE_LIVE = env.get_env_int('BEFORE_LIVE')
