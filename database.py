@@ -550,8 +550,8 @@ class DatabaseManager:
     def updateDiscordMapping(self, data: dict):
         query = f"""
             update discord_mapping
-            set ref_id = %s, type_ref = %s = %s, is_NotifyOnLiveStart = %s, Is_PreAlertEnabled = %s
-            where discord_id = %s
+            set ref_id = %s, type_ref = %s, is_NotifyOnLiveStart = %s, Is_PreAlertEnabled = %s
+            where discord_id = %s and ref_id = %s and type_ref = %s
         """
         self.execute_many(
             query,
@@ -562,6 +562,8 @@ class DatabaseManager:
                     data["is_NotifyOnLiveStart"],
                     data["Is_PreAlertEnabled"],
                     data["discord_id"],
+                    data["ref_id"],
+                    data["type_ref"],
                 )
             ],
         )
@@ -569,10 +571,11 @@ class DatabaseManager:
     def checkDiscordMapping(self, data: dict) -> str:
         query = f"""
             select id from discord_mapping
-            where discord_id = %s
+            where discord_id = '{data["discord_id"]}' and ref_id = '{data["ref_id"]}' 
+                and type_ref = '{data["type_ref"]}'
             limit 1;
         """
-        result = self.execute_query(query, (data["discord_id"],))
+        result = self.execute_query(query)
         if result:
             result = [dict(zip(["id"], row)) for row in result]
             self.updateDiscordMapping(data)
@@ -762,20 +765,20 @@ class DatabaseManager:
                 ds.id, ds.guildid as guild_id, ds.channelid as channel_id, dm.is_NotifyOnLiveStart, dm.is_PreAlertEnabled
             from discordserver ds
             inner join discord_mapping dm on ds.id = dm.discord_id
-            where ds.is_active = 1 and (dm.is_NotifyOnLiveStart = 1 or dm.is_PreAlertEnabled = 1)
+            where ds.is_active = 1 and (dm.is_NotifyOnLiveStart = 1 or dm.is_PreAlertEnabled = 1) 
         """
         conditions = []
         if vtuber_id:
             vtuber_id = ",".join(["'{}'".format(x) for x in vtuber_id])
-            conditions.append(f" (dm.ref_id in ({vtuber_id}) and dm.type_ref = 'vtuber')")
+            conditions.append(f" (dm.ref_id in ({vtuber_id}) and dm.type_ref = 'vtuber') ")
         if gen_id:
             gen_id = ",".join(["'{}'".format(x) for x in gen_id])
-            conditions.append(f" (dm.ref_id in ({gen_id}) and dm.type_ref = 'gen')")
+            conditions.append(f" (dm.ref_id in ({gen_id}) and dm.type_ref = 'gen') ")
         if group_id:
-            group_id = ",".join(["'{}'".ref_id(x) for x in group_id])
-            conditions.append(f" (dm.ref_id in ({group_id}) and dm.type_ref = 'group')")
+            group_id = ",".join(["'{}'".format(x) for x in group_id])
+            conditions.append(f" (dm.ref_id in ({group_id}) and dm.type_ref = 'group') ")
         if conditions:
-            query += " where " + " or ".join(conditions)
+            query += " and (" + " or ".join(conditions) + ")"
         result = self.execute_query(query)
         if result:
             return [

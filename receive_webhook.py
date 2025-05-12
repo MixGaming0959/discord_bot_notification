@@ -1,7 +1,6 @@
 from random import randint
 from threading import Timer
-# from flask import Flask, request  # type: ignore
-import requests # type: ignore
+
 import xml.etree.ElementTree as ET
 
 import asyncio
@@ -33,6 +32,9 @@ MAX_EMBED_SIZE = 4000
 # FetchData
 from fetchData import LiveStreamStatus
 liveStreamStatus = LiveStreamStatus(AUTO_CHECK)
+
+from send_embed import DiscordSendData
+sendData = DiscordSendData(DISCORD_BOT_TOKEN, db)
 
 @app.route('/api/v1/webhooks', method=['GET', 'POST'])
 def webhooks():
@@ -71,6 +73,7 @@ def webhooks():
                 for recent in PROCESSED_PAYLOADS:
                     if recent["video_id"] == video_id and recent["channel_id"] == channel_id and parse_datetime(timedelta(seconds=LIMIT_TIME_LIFE), recent["timestamp"], timedelta(seconds=LIMIT_TIME_LIFE)):
                         print(f"WebhookApp: https://youtube.com/watch?v={video_id} is already processed. Skipping.")
+                        # sys.stdout.flush()
                         return "OK"
                 PROCESSED_PAYLOADS.append(target)    
 
@@ -79,8 +82,10 @@ def webhooks():
                 Timer(20, wait_result, args=(video_id, channel_id)).start()
             else:
                 print(f"WebhookApp: {channel_name} https://youtube.com/watch?v={video_id}; Notification is older than 7 days. Skipping.")
+                # sys.stdout.flush()
         else:
             print("WebhookApp: No valid video or channel ID found in the notification.")
+            # sys.stdout.flush()
         return "OK"
 
 def wait_result(video_id, channel_id):
@@ -98,6 +103,7 @@ def function(video_id:str, result:list, loop:int= 0):
             gen_ids = set()
             group_ids = set()
             print(f"WebhookApp: Start at {v['start_at']} https://youtube.com/watch?v={video_id} is live or upcoming.")
+            # sys.stdout.flush()
             if type(v['start_at']) == str:
                 v['start_at'] = db.datetime_gmt(datetime.fromisoformat(v['start_at']))
             vtuber = db.getVtuber(v['channel_tag'])
@@ -113,7 +119,6 @@ def function(video_id:str, result:list, loop:int= 0):
                         group_ids.add(colab['group_id'])
             live_status = v['live_status'] == "live" and parse_datetime(timedelta(minutes=60), db.datetime_gmt(v['start_at']), timedelta(minutes=10))
             # upcoming_status = v['live_status'] == "upcoming" and parse_datetime(timedelta(minutes=10), db.datetime_gmt(v['start_at']), timedelta(minutes=30))
-
             if (live_status) and SEND_MSG_WHEN_START:
                 discord_details = db.getDiscordDetails(list(vtuber_ids), list(gen_ids), list(group_ids))
                 for detail in set(tuple(d.items()) for d in discord_details):
@@ -123,13 +128,16 @@ def function(video_id:str, result:list, loop:int= 0):
                     
                     if v['live_status'] == "live" or v['start_at'] < timeNow:
                         v['start_at'] = timeNow
-                    send_embed(dic['channel_id'], [v])
+                    sendData.send_embed(dic['channel_id'], [v])
+                    print(f"WebhookApp: Send Embed to {dic['channel_id']}")
             elif SEND_MSG_WHEN_START:
                 loop += 1
                 Timer(5, function, args=(video_id, result, loop)).start()
                 print(f"WebhookApp: Start at {v['start_at']} https://youtube.com/watch?v={video_id} is already more than 15 minutes live or upcoming. Skipping.")
+                # sys.stdout.flush()
     else:
         print(f"WebhookApp: https://www.youtube.com/watch?v={video_id} is End. Skipping.")
+        # sys.stdout.flush()
 
 async def wait_for_notification():
     await asyncio.sleep(1)
@@ -199,11 +207,13 @@ def parse_notification(notification):
                         if dic['is_NotifyOnLiveStart'] == 0:
                             continue
                         
-                    send_embed(dic['channel_id'], [detail])
+                    sendData.send_embed(dic['channel_id'], [detail], "live")
 
                 print(f"WebhookApp: {url} is deleted. Channel name: {channel_name}")
+                # sys.stdout.flush()
             else:
                 print("WebhookApp: Raw notification received:", notification.decode("utf-8"))
+                # sys.stdout.flush()
     
     except Exception as e:
         print(f"WebhookApp: Error parsing notification: {e}")
@@ -215,87 +225,91 @@ def insertLiveTable(video_details: list):
         data['is_noti'] = True
         db.checkLiveTable(data)
 
-def send_message(channel_id, message):
-    """Send a message to a channel."""
-    url = f"https://discord.com/api/v9/channels/{channel_id}/messages"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
-    }
-    data = {"content": message}
-    response = requests.post(url, headers=headers, json=data)
-    if response.status_code == 200:
-        print("WebhookApp: Message sent successfully.")
-        return {"status": "success", "message": "Message sent successfully"}
-    else:
-        print(f"WebhookApp: Failed to send message. Status code: {response.status_code}")
-        return {"status": "failed", "message": f"Error: {response.status_code}"}
+# def send_message(channel_id, message):
+#     """Send a message to a channel."""
+#     url = f"https://discord.com/api/v9/channels/{channel_id}/messages"
+#     headers = {
+#         "Content-Type": "application/json",
+#         "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
+#     }
+#     data = {"content": message}
+#     response = requests.post(url, headers=headers, json=data)
+#     if response.status_code == 200:
+#         print("WebhookApp: Message sent successfully.")
+#         # sys.stdout.flush()
+#         return {"status": "success", "message": "Message sent successfully"}
+#     else:
+#         print(f"WebhookApp: Failed to send message. Status code: {response.status_code}")
+#         # sys.stdout.flush()
+#         return {"status": "failed", "message": f"Error: {response.status_code}"}
 
 
-def send_embed(channel_id: str, data: list):
-    """Send an embed to a channel."""
-    url = f"https://discord.com/api/v9/channels/{channel_id}/messages"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
-    }
+# def send_embed(channel_id: str, data: list):
+#     """Send an embed to a channel."""
+#     url = f"https://discord.com/api/v9/channels/{channel_id}/messages"
+#     headers = {
+#         "Content-Type": "application/json",
+#         "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
+#     }
 
-    embeds = create_embed(data)
-    response = requests.post(url, headers=headers, json=embeds)
-    if response.status_code == 200:
-        print("WebhookApp: successfully.")
-        return {"status": "success", "message": "Embed sent successfully"}
-    else:
-        print(f"WebhookApp: Failed. Status code: {response.status_code}")
-        return {"status": "failed", "message": f"Error: {response.status_code}"}
+#     embeds = create_embed(data)
+#     response = requests.post(url, headers=headers, json=embeds)
+#     if response.status_code == 200:
+#         print("WebhookApp: successfully.")
+#         # sys.stdout.flush()
+#         return {"status": "success", "message": "Embed sent successfully"}
+#     else:
+#         print(f"WebhookApp: Failed. Status code: {response.status_code}")
+#         # sys.stdout.flush()
+#         return {"status": "failed", "message": f"Error: {response.status_code}"}
 
-# embed as http send response
-def create_embed(data: list):
-    result = {"embeds": []}
-    vtuber_image = db.getVtuber(data[0]["channel_id"])['image']
-    for v in data:
-        # print(v)
-        title = v["title"] + " กำลังไลฟ์"
-        url = v["url"]
-        image = v["image"]
-        if type(v["start_at"]) == str:
-            v["start_at"] = datetime.fromisoformat(v["start_at"])
-            start_at = v["start_at"].strftime('%H:%M')
-        else:
-            start_at = v["start_at"].strftime('%H:%M')
-        # start_at = (datetime.strptime(v['start_at'], "%Y-%m-%d %H:%M:%S")).strftime('%H:%M')
+# # embed as http send response
+# def create_embed(data: list):
+#     result = {"embeds": []}
+#     vtuber_image = db.getVtuber(data[0]["channel_id"])['image']
+#     for v in data:
+#         # print(v)
+#         title = v["title"] + " กำลังไลฟ์"
+#         url = v["url"]
+#         image = v["image"]
+#         if type(v["start_at"]) == str:
+#             v["start_at"] = datetime.fromisoformat(v["start_at"])
+#             start_at = v["start_at"].strftime('%H:%M')
+#         else:
+#             start_at = v["start_at"].strftime('%H:%M')
+#         # start_at = (datetime.strptime(v['start_at'], "%Y-%m-%d %H:%M:%S")).strftime('%H:%M')
 
-        channel_name = v["channel_name"]
-        channel_tag = v["channel_tag"]
-        live_status = v["live_status"]
-        channel_link = f"https://www.youtube.com/@{channel_tag}/streams"
+#         channel_name = v["channel_name"]
+#         channel_tag = v["channel_tag"]
+#         live_status = v["live_status"]
+#         channel_link = f"https://www.youtube.com/@{channel_tag}/streams"
         
-        embed = {
-            "title": channel_name,
-            "description": f"{title} [Link]({url})", # 10 December 2024
-            "color": random_color(),
-            "thumbnail": {"url": vtuber_image},
-            "image": {"url": image},
-            "fields": [
-                {
-                    "name": "เวลาไลฟ์",
-                    "value": f"{start_at} น.",
-                    "inline": True,
-                },
-                {
-                    "name": "สถานะ",
-                    "value": live_status,
-                    "inline": True,
-                },
-                {
-                    "name": "ที่ช่อง",
-                    "value": f"[{channel_tag}]({channel_link})",
-                    "inline": True,
-                },
-            ],
-        }
-        result["embeds"].append(embed)
-    return result
+#         embed = {
+#             "title": channel_name,
+#             "description": f"{title} [Link]({url})", # 10 December 2024
+#             "color": random_color(),
+#             "thumbnail": {"url": vtuber_image},
+#             "image": {"url": image},
+#             "fields": [
+#                 {
+#                     "name": "เวลาไลฟ์",
+#                     "value": f"{start_at} น.",
+#                     "inline": True,
+#                 },
+#                 {
+#                     "name": "สถานะ",
+#                     "value": live_status,
+#                     "inline": True,
+#                 },
+#                 {
+#                     "name": "ที่ช่อง",
+#                     "value": f"[{channel_tag}]({channel_link})",
+#                     "inline": True,
+#                 },
+#             ],
+#         }
+#         result["embeds"].append(embed)
+#     return result
 
 def random_color():
     # Generate a random color as an integer value

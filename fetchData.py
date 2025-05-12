@@ -546,7 +546,7 @@ class LiveStreamStatus:
                 continue
 
             time_list.add(data["start_at"])
-            old_start_at = data["start_at"]
+            old_start_at = self.db.datetime_gmt(data["start_at"])
             isUpcoming = data["live_status"] in ["upcoming", "live"]
             if self.autoCheck and isUpcoming:
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
@@ -563,7 +563,7 @@ class LiveStreamStatus:
                     or data["image"] != video_details["image"]
                     or data["start_at"] != video_details["start_at"]
                     or data["live_status"] != video_details["live_status"]):
-                    print("Update", data["title"], video_details["live_status"])
+                    # print("Update", data["title"], video_details["live_status"])
                     self.db.updateLiveTable(video_details)
                 else:
                     video_details = data
@@ -574,13 +574,10 @@ class LiveStreamStatus:
             # Before 19.00 - 30 = 18.30 < Now (18.30) < 19.00 + 10 = 19.10 :  pass
             # After  21.30 - 30 = 21.00 < Now (18.30) < 21.30 + 10 = 21.40 :  continue
             # After  19.30 - 30 = 19.00 < Now (18.30) < 19.30 + 10 = 19.40 :  continue
-            # print(old_start_at, new_start_at, data["live_status"], video_details["live_status"])
+            # print(old_start_at != new_start_at, data["live_status"], video_details["live_status"])
             if old_start_at != new_start_at or data["live_status"] != video_details["live_status"] or video_details["live_status"] == 'live':
                 # print("Update", data["title"], video_details["live_status"], old_start_at, new_start_at)
                 continue
-
-            video_details['is_noti'] = True
-            self.db.updateLiveTable(video_details)
 
             video_details['title'] = self.truncate_string(video_details['title'], self.LIMIT_TRUNCATE_STRING)
             result.append(video_details)

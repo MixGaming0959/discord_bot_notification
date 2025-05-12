@@ -1,3 +1,4 @@
+import asyncio
 from get_env import GetEnv
 from botDiscord import run_discord_bot
 from receive_webhook import run_server
@@ -47,7 +48,7 @@ if __name__ == "__main__":
 
         # Create threads
         discord_thread = threading.Thread(target=run_discord_bot, args=(env.discord_token_env(),), daemon=True, name="DiscordBot")
-        auto_check_db = threading.Thread(target=botSendMSG.run_send_message, daemon=True, name="AutoCheckDB")
+        auto_check_db = threading.Thread(target=asyncio.run, args=(botSendMSG.run_send_message(),), daemon=True, name="AutoCheckDB")
         flask_thread = threading.Thread(target=run_server, daemon=True, name="FlaskServer")
 
         # Start threads
@@ -59,7 +60,7 @@ if __name__ == "__main__":
 
         # wait 3 seconds before starting subscribe_to_channel
         time.sleep(3)
-        subscribe_to_channel_thread = threading.Thread(target=sub.run_subscribe_to_channel, daemon=True, name="SubscribeToChannel")
+        subscribe_to_channel_thread = threading.Thread(target=asyncio.run, args=(sub.run_subscribe_to_channel(),), daemon=True, name="SubscribeToChannel")
         subscribe_to_channel_thread.start()
 
         logging.info("SubscribeToChannel thread started successfully.")

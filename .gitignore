@@ -4,6 +4,7 @@ key.txt
 .env.local
 Run Main.bat
 Run ngrok.bat
+build_docker.bat
 Log
 assets/
 test/

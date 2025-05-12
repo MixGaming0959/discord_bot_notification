@@ -698,30 +698,35 @@ async def setBot(interaction: discord.Interaction, options1: bool, options2: app
 
         vtuber, gen, group = {'id': None}, {'id': None}, {'id': None}
         ref_id = ""
+        type_ref = ""
         if options2.value == 0:
             vtuber = db.getVtuber(name)
             if vtuber == None:
                 raise ValueError("ไม่พบชื่อช่อง")
             name = vtuber['name']
             ref_id = vtuber['id']
+            type_ref = "Vtuber"
         elif options2.value == 1:
             gen = db.getGen(name)
             if gen == None:
                 raise ValueError("ไม่พบชื่อรุ่น/บ้าน")
             name = gen['name']
             ref_id = gen['id']
+            type_ref = "Gen"
         elif options2.value == 2:
             group = db.getGroup(name)
             if group == None:
                 raise ValueError("ไม่พบชื่อค่าย")
             name = group['name']
             ref_id = group['id']
+            type_ref = "Group"
         else:
             raise ValueError("ตัวเลือกไม่ถูกต้อง")
         
         data = {
             "discord_id": discord_id, 
             "ref_id": ref_id, 
+            "type_ref": type_ref,
             "is_NotifyOnLiveStart": options3, 
             "Is_PreAlertEnabled": options4
         }
