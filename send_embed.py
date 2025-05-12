@@ -142,7 +142,7 @@ class DiscordSendData:
                 "title": channel_name,
                 # "description": f"ตารางไลฟ์ ประจำวันที่ {v['start_at'].strftime('%d %B %Y')}", # 10 December 2024
                 "description": f"{title} [Link]({url})", # 10 December 2024
-                "color": random_color(),
+                "color": self.random_color(),
                 "thumbnail": {"url": vtuber_image},
                 "image": {"url": image},
                 "fields": [
