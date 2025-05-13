@@ -38,7 +38,7 @@ class BotSendMessage:
         gen_id = set()
         group_id = set()
         for r in result:
-            print(f"BotSendMSG: {r}")
+            # print(f"BotSendMSG: {r}")
             vtuber_id = set()
             gen_id = set()
             group_id = set()
@@ -62,8 +62,6 @@ class BotSendMessage:
             for d in set(tuple(d.items()) for d in discord_details):
                 dic = dict(d)
                 if dic["is_PreAlertEnabled"] == 0:
-                    continue
-                if dic["channel_id"] == None:
                     continue
                 self.sendData.send_embed(dic["channel_id"], [r], "before")
                 print(f"BotSendMSG: Embed sent to {dic['channel_id']}")

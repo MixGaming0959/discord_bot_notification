@@ -393,10 +393,12 @@ class DatabaseManager:
             from livetable
             inner join vtuber on livetable.vtuberid = vtuber.id
             where livetable.livestatus in ('upcoming', 'live') and startat >= '{dt_past}' and startat <= '{dt_future}'
+            and IsNoti = 0
             order by start_at asc;
         """
         result = self.execute_query(query)
         if result:
+            # print("getLiveTable_30: ", len(result), query)
             return [
                 dict(
                     zip(

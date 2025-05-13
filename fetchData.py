@@ -24,6 +24,7 @@ class LiveStreamStatus:
         self.TIME_ERROR = timedelta(minutes=30)
         self.LIMIT_TRUNCATE_STRING = 100
         self.USE_API_KEY = env.get_env_bool('USE_API_KEY')
+        self.gmt = env.get_env_int("GMT")
 
     def get_youtube_service(self):
         if self.USE_API_KEY:
@@ -534,7 +535,6 @@ class LiveStreamStatus:
         result = []
         # ตรวจสอบว่าเริ่มถ่ายทอดสดหรือยัง
         if video == None:
-            # print("No data")
             return result
         
         for data in video:
@@ -546,7 +546,7 @@ class LiveStreamStatus:
                 continue
 
             time_list.add(data["start_at"])
-            old_start_at = self.db.datetime_gmt(data["start_at"])
+            old_start_at = self.db.datetime_gmt(data["start_at"] - timedelta(hours=7))
             isUpcoming = data["live_status"] in ["upcoming", "live"]
             if self.autoCheck and isUpcoming:
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
