@@ -220,10 +220,16 @@ def parse_notification(notification):
     return None, None, None, None
 
 def insertLiveTable(video_details: list):
+    
     copy = video_details.copy()
     for data in copy:
-        data['is_noti'] = True
-        db.checkLiveTable(data)
+        try:
+            data['is_noti'] = True
+            db.checkLiveTable(data)
+        except Exception as e:
+            print(f"WebhookApp: {str(e)}")
+            print(data)
+            pass
 
 # def send_message(channel_id, message):
 #     """Send a message to a channel."""

@@ -53,22 +53,26 @@ class LiveStreamStatus:
         # สร้าง YouTube API Client
         return build("youtube", "v3", credentials=creds)
 
+    def fetch_video_details(self, youtube, video_ids:str, part="liveStreamingDetails,snippet,status"):
+        results = []
+        batch_size = 40  # YouTube API limit
+        list_ids = video_ids.split(",")
+        for i in range(0, len(list_ids), batch_size):
+            batch = video_ids[i:i+batch_size]
+            request = youtube.videos().list(
+                part=part,
+                id=",".join(batch)
+            )
+            response = request.execute()
+            results.extend(response.get("items", []))
+        
+        return results
+
     async def get_live_stream_info(self, video_ids: str, channel_id: str):
         vtuber = self.db.getVtuber(channel_id)
         try:
             youtube = self.get_youtube_service()
-
-            # ขอข้อมูลของวิดีโอที่กำหนด
-            request = youtube.videos().list(
-                part="liveStreamingDetails,snippet,status", id=video_ids
-            )
-
-            response = request.execute()
-
-            # with open("video_detail.json", "w") as outfile:
-            #     import json
-            #     json.dump(response, outfile)
-            #     print("x")
+            response = self.fetch_video_details(youtube, video_ids)
 
         except Exception as e:
             video_in_db = []

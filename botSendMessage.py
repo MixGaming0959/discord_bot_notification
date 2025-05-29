@@ -64,10 +64,12 @@ class BotSendMessage:
                 if dic["is_PreAlertEnabled"] == 0:
                     continue
                 self.sendData.send_embed(dic["channel_id"], [r], "before")
-                print(f"BotSendMSG: Embed sent to {dic['channel_id']}")
+                # print(f"BotSendMSG: Embed sent to {dic['channel_id']}")
 
             r['is_noti'] = True
             self.db.updateLiveTable(r)
+
+            print(f"BotSendMSG: Send Embed Complete")
 
         return "OK", 200
 

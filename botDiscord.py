@@ -362,19 +362,28 @@ async def updateLive(interaction: discord.Interaction, options: app_commands.Cho
         
         name = name.strip()
         if options.value == 0:
-            listVtuber = [db.getVtuber(name)]
+            tmp = db.getVtuber(name)
+            if tmp == None:
+                raise "ไม่พบชื่อช่องที่ค้นหา"
+            listVtuber = [tmp]
             if listVtuber[0]['name'] != None:
                 name = listVtuber[0]['name']
             else:
                 raise "ไม่พบชื่อช่องที่ค้นหา"
         elif options.value == 1:
-            listVtuber = db.listVtuberByGen(name)
+            tmp = db.listVtuberByGen(name)
+            if tmp == None:
+                raise "ไม่พบรุ่น/บ้านที่ค้นหา"
+            listVtuber = tmp
             if listVtuber[0]['gen_name'] != None:
                 name = listVtuber[0]['gen_name']
             else:
                 raise "ไม่พบรุ่น/บ้านที่ค้นหา"
         elif options.value == 2:
-            listVtuber = db.listVtuberByGroup(name)
+            tmp = db.listVtuberByGroup(name)
+            if tmp == None:
+                raise "ไม่พบค่ายที่ค้นหา"
+            listVtuber = tmp
             if listVtuber[0]['group_name'] != None:
                 name = listVtuber[0]['group_name']
             else:

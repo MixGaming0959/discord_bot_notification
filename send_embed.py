@@ -45,7 +45,7 @@ class DiscordSendData:
 
         response = requests.post(url, headers=headers, json=embeds)
         if response.status_code == 200:
-            print("WebhookApp: successfully.")
+            # print("WebhookApp: successfully.")
             # sys.stdout.flush()
             return {"status": "success", "message": "Embed sent successfully"}
         else:
@@ -116,9 +116,13 @@ class DiscordSendData:
                 start_at = v["start_at"].strftime('%H:%M')
             else:
                 start_at = v["start_at"].strftime('%H:%M')
-            # start_at = (datetime.strptime(v['start_at'], "%Y-%m-%d %H:%M:%S")).strftime('%H:%M')
-            # now - start_at to hour and minute
-            dt = self.db.datetime_gmt(v["start_at"]) - self.db.datetime_gmt(datetime.now())
+
+            start_at_check = self.db.datetime_gmt(v["start_at"])
+            timeNow = self.db.datetime_gmt(datetime.now())
+            if start_at_check < timeNow:
+                continue
+            dt = start_at_check - timeNow
+
             hour, minute = dt.seconds // 3600, RoundUp(dt.seconds / 60) % 60
             # 1 ชั่วโมง 59 นาที -> 2 ชั่วโมง
             if minute == 0:
