@@ -58,7 +58,7 @@ class LiveStreamStatus:
         batch_size = 40  # YouTube API limit
         list_ids = video_ids.split(",")
         for i in range(0, len(list_ids), batch_size):
-            batch = video_ids[i:i+batch_size]
+            batch = list_ids[i:i+batch_size]
             request = youtube.videos().list(
                 part=part,
                 id=",".join(batch)
@@ -95,8 +95,8 @@ class LiveStreamStatus:
         for v in self.db.getLiveTablebyURL(lis_video_id):
             video_in_db[v['url']] = v
 
-        if "items" in response and response["items"]:
-            for item in response["items"]:
+        if len(response) > 0:
+            for item in response:
                 snippet = item["snippet"]
                 live_status = snippet["liveBroadcastContent"]
                 video_id = item["id"]

@@ -1,11 +1,4 @@
-services:
-  # static-site:
-  #   image: dockersamples/static-site
-  #   build: .
-  #   ports:
-  #     - "80:80"
-  #   restart: always
-    
+services:   
   ngrok:
     image: ngrok/ngrok:latest
     command:
