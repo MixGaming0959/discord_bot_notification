@@ -482,7 +482,14 @@ class LiveStreamStatus:
                 playlistId=playlist_id,
                 maxResults=50
             )
-            response = request.execute()
+            try:
+                response = request.execute()
+            except HttpError as e:
+                if e.error_details[0]["reason"] == "playlistNotFound":
+                    response = {"items": []}
+                else:
+                    print(f"response Error: {e}")
+                    raise e
             # print(member_playlist)
             request_member = youtube.playlistItems().list(
                 part="contentDetails",
@@ -496,6 +503,7 @@ class LiveStreamStatus:
                 if e.error_details[0]["reason"] == "playlistNotFound":
                     response_member = {"items": []}
                 else:
+                    print(f"response_member Error: {e}")
                     raise e
         except HttpError as e:
             error_reason = (

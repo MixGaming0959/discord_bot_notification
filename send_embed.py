@@ -49,9 +49,9 @@ class DiscordSendData:
             # sys.stdout.flush()
             return {"status": "success", "message": "Embed sent successfully"}
         else:
-            print(f"WebhookApp: Failed. Status code: {response.status_code}")
+            print(f"WebhookApp: Failed. Status code: {response.status_code}, Response: {response.text}")
             # sys.stdout.flush()
-            return {"status": "failed", "message": f"Error: {response.status_code}"}
+            return {"status": "failed", "message": f"Error: {response.status_code}, Response: {response.text}"}
 
     # embed as http send response
     def create_embed_live(self, data: list):
