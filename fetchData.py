@@ -200,26 +200,30 @@ class LiveStreamStatus:
                     f"https://www.youtube.com/watch?v={video_id}", "cancelled"
                 )
             print(vtuber["name"], f"https://www.youtube.com/watch?v={video_id}", "cancelled")
-       
         return result
     
     def set_collaborator(self, title: str):
         colaborator = None
         if "@" in title:
             tmp = title[title.strip().index("@") :]
-            colaborator = ",".join(tmp.split("@")[1:])
+            lis_colab = []
+            for i in tmp.split("@")[1:]:
+                lis_colab.append(i.split(" ")[0])
+            colaborator = ",".join(lis_colab)
+
         elif "ft." in title.lower():
             tmp = title.lower()
             tmp = title[tmp.strip().index("ft.") + 3 :]
             colaborator = ""
             for i in tmp.split(","):
-                if i.strip() == "":
+                colab_name = i.split(" ")[0].strip()
+                if colab_name == "":
                     continue
-                name = self.db.getVtuber(i.strip())
-                if name == None:
-                    colaborator += f"{i.strip()},"
+                vtuber = self.db.getVtuber(colab_name)
+                if vtuber == None:
+                    colaborator += f"{colab_name},"
                 else:
-                    colaborator += f"{name['channel_tag']},"
+                    colaborator += f"{vtuber['channel_tag']},"
             colaborator = colaborator[:-1]
         return colaborator
 
@@ -551,25 +555,25 @@ class LiveStreamStatus:
         
         for data in video:
             video_details = {}
-            # dt = data["start_at"]
-            # data["start_at"] = self.truncate_date(dt.strftime("%Y-%m-%d %H:%M:%S%z"), "%Y-%m-%d %H:%M:%S%z")
-            # print(data["is_noti"])
+            data["start_at"] = self.db.datetime_gmt(data["start_at"] - timedelta(hours=7))
             if data['is_noti'] == 1:
                 continue
 
             time_list.add(data["start_at"])
-            old_start_at = self.db.datetime_gmt(data["start_at"] - timedelta(hours=7))
+            old_start_at = data["start_at"]
             isUpcoming = data["live_status"] in ["upcoming", "live"]
             if self.autoCheck and isUpcoming:
                 video_id = data["url"].replace("https://www.youtube.com/watch?v=", "")
                 video_details = await self.get_live_stream_info(video_id, data["channel_id"])
                 if video_details == None or len(video_details) == 0:
+                    # print("Cannot get live stream info")
                     continue
 
                 video_details = video_details[0]
                 video_details['is_noti'] = True
 
                 # เช็คว่า Liveหรือยัง มีการเปลี่ยนคอนเทนต์หรือไม่
+                # print(data["start_at"], video_details["start_at"])
                 if (
                     data["title"] != video_details["title"]
                     or data["image"] != video_details["image"]

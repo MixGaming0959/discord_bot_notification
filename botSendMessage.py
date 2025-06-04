@@ -38,33 +38,35 @@ class BotSendMessage:
         gen_id = set()
         group_id = set()
         for r in result:
-            # print(f"BotSendMSG: {r}")
             vtuber_id = set()
             gen_id = set()
             group_id = set()
             vtuber = self.db.getVtuber(r["channel_id"])
+            if vtuber is None:
+                r['is_noti'] = True
+                self.db.updateLiveTable(r)
+                # print(f"BotSendMSG: Cannot get vtuber info: {r['channel_id']}")
+                continue
             vtuber_id.add(vtuber["id"])
             gen_id.add(vtuber["gen_id"])
             group_id.add(vtuber["group_id"])
-
             if r['colaborator'] != None:
-                r['colaborator'] = r['colaborator'].split(",")
-                for c in r['colaborator']:
-                    vtuber_tmp = self.db.getVtuber(c)
+                colab = r['colaborator'].split(",")
+                for c in colab:
+                    vtuber_tmp = self.db.getVtuber(c.split(" ")[0])
                     if vtuber_tmp == None:
                         continue
+                    # print(f"BotSendMSG: Cannot get vtuber info: {vtuber_tmp}")
                     vtuber_id.add(vtuber_tmp["id"])
                     gen_id.add(vtuber_tmp["gen_id"])
                     group_id.add(vtuber_tmp["group_id"])
-        
             discord_details = self.db.getDiscordDetails(list(vtuber_id), list(gen_id), list(group_id))
-
-            for d in set(tuple(d.items()) for d in discord_details):
-                dic = dict(d)
-                if dic["is_PreAlertEnabled"] == 0:
-                    continue
-                self.sendData.send_embed(dic["channel_id"], [r], "before")
-                # print(f"BotSendMSG: Embed sent to {dic['channel_id']}")
+            if len(discord_details) != 0:
+                for d in set(tuple(d.items()) for d in discord_details):
+                    dic = dict(d)
+                    if dic["is_PreAlertEnabled"] == 0:
+                        continue
+                    self.sendData.send_embed(dic["channel_id"], [r], "before")
 
             r['is_noti'] = True
             self.db.updateLiveTable(r)
@@ -72,91 +74,6 @@ class BotSendMessage:
             print(f"BotSendMSG: Send Embed Complete")
 
         return "OK", 200
-
-    # def send_embed(self, channel_id, data: list):
-    #     """Send an embed to a channel."""
-    #     url = f"https://discord.com/api/v9/channels/{channel_id}/messages"
-    #     headers = {
-    #         "Content-Type": "application/json",
-    #         "Authorization": f"Bot {self.DISCORD_BOT_TOKEN}",
-    #     }
-
-    #     embeds = self.create_embed(data)
-    #     response = requests_post(url, headers=headers, json=embeds)
-    #     if response.status_code == 200:
-    #         print("BotSendMSG: Embed sent successfully.")
-    #         # sys.stdout.flush()  # Force flush after print
-    #         return {"status": "success", "message": "Embed sent successfully"}
-    #     else:
-    #         print(f"BotSendMSG: Failed to send embed. Status code: {response.status_code}")
-    #         # sys.stdout.flush()  # Force flush after print
-    #         return {"status": "failed", "message": f"Error: {response.status_code}"}
-
-
-    # # embed as http send response
-    # def create_embed(self, data: list):
-    #     result = {
-    #         # "content": "แจ้งเตือนก่อนไลฟ์ 30 นาที",
-    #         "embeds": []}
-    #     vtuber_image = self.db.getVtuber(data[0]["channel_id"])['image']
-    #     for v in data:
-    #         # print(v)
-    #         url = v["url"]
-    #         image = v["image"]
-    #         if type(v["start_at"]) == str:
-    #             v["start_at"] = datetime.fromisoformat(v["start_at"])
-    #             start_at = v["start_at"].strftime('%H:%M')
-    #         else:
-    #             start_at = v["start_at"].strftime('%H:%M')
-    #         # start_at = (datetime.strptime(v['start_at'], "%Y-%m-%d %H:%M:%S")).strftime('%H:%M')
-    #         # now - start_at to hour and minute
-    #         dt = self.db.datetime_gmt(v["start_at"]) - self.db.datetime_gmt(datetime.now())
-    #         hour, minute = dt.seconds // 3600, RoundUp(dt.seconds / 60) % 60
-    #         # 1 ชั่วโมง 59 นาที -> 2 ชั่วโมง
-    #         if minute == 0:
-    #             hour = RoundUp(dt.seconds / 3600)
-
-    #         timeStr = ""
-    #         if hour > 0:
-    #             timeStr += f"{hour} ชั่วโมง "
-    #         if minute > 0:
-    #             timeStr += f"{minute} นาที"
-    #         if timeStr == "":
-    #             timeStr = "0 นาที"
-            
-    #         title = v["title"] + f" กำลังจะเริ่มไลฟ์ในอีก {timeStr}"
-    #         channel_name = v["channel_name"]
-    #         channel_tag = v["channel_tag"]
-    #         live_status = v["live_status"]
-    #         channel_link = f"https://www.youtube.com/@{channel_tag}/streams"
-            
-    #         embed = {
-    #             "title": channel_name,
-    #             # "description": f"ตารางไลฟ์ ประจำวันที่ {v['start_at'].strftime('%d %B %Y')}", # 10 December 2024
-    #             "description": f"{title} [Link]({url})", # 10 December 2024
-    #             "color": random_color(),
-    #             "thumbnail": {"url": vtuber_image},
-    #             "image": {"url": image},
-    #             "fields": [
-    #                 {
-    #                     "name": "เวลาไลฟ์",
-    #                     "value": f"{start_at} น.",
-    #                     "inline": True,
-    #                 },
-    #                 {
-    #                     "name": "สถานะ",
-    #                     "value": live_status,
-    #                     "inline": True,
-    #                 },
-    #                 {
-    #                     "name": "ที่ช่อง",
-    #                     "value": f"[{channel_tag}]({channel_link})",
-    #                     "inline": True,
-    #                 },
-    #             ],
-    #         }
-    #         result["embeds"].append(embed)
-    #     return result
 
     async def run_send_message(self):
         print("BotSendMSG: Start Loop")

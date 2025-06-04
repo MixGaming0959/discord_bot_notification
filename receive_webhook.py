@@ -88,12 +88,12 @@ def webhooks():
             # sys.stdout.flush()
         return "OK"
 
-def wait_result(video_id, channel_id):
+def wait_result(video_id: str, channel_id: str):
     result = asyncio.run(liveStreamStatus.get_live_stream_info(video_id, channel_id))
     # print(db.datetime_gmt(datetime.now()), video_id, channel_id, result)
     function(video_id, result)
 
-def function(video_id:str, result:list, loop:int= 0):
+def function(video_id:str, result:list | None, loop:int= 0):
     if result and loop < 2:
         insertLiveTable(result.copy())
 

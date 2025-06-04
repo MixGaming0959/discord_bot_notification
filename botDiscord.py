@@ -599,24 +599,24 @@ async def insertNewFromMainChannel(interaction: discord.Interaction, username: s
         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
         return
 
-@client.tree.command(name='insert-video', description="สำหรับสร้างวีดีโอ/LiveStream ใหม่ ด้วยมือ")
-async def insertVideo(interaction: discord.Interaction, url: str):
-    await interaction.response.defer()
-    try:
-        txt = discordAuthChannel(interaction)
-        if txt != None:
-            await interaction.followup.send(txt)
-            return
+# @client.tree.command(name='insert-video', description="สำหรับสร้างวีดีโอ/LiveStream ใหม่ ด้วยมือ")
+# async def insertVideo(interaction: discord.Interaction, url: str):
+#     await interaction.response.defer()
+#     try:
+#         txt = discordAuthChannel(interaction)
+#         if txt != None:
+#             await interaction.followup.send(txt)
+#             return
 
-        video_id = url.replace("https://www.youtube.com/watch?v=", "")
-        video_detail = await liveStreamStatus.get_live_stream_info(video_id)
-        if video_detail == None:
-            raise ValueError("ไม่พบวีดีโอที่ต้องการ")
-        liveStreamStatus.db.checkLiveTable(video_detail)
+#         video_id = url.replace("https://www.youtube.com/watch?v=", "")
+#         video_detail = await liveStreamStatus.get_live_stream_info(video_id)
+#         if video_detail == None:
+#             raise ValueError("ไม่พบวีดีโอที่ต้องการ")
+#         liveStreamStatus.db.checkLiveTable(video_detail)
         
-    except Exception as e:
-        await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
-        return
+#     except Exception as e:
+#         await interaction.followup.send(f"เกิดข้อผิดพลาด: {e}")
+#         return
     
 # @client.tree.command(name='list-group', description="สำหรับแสดงชื่อค่ายทั้งหมด")
 # async def listGroup(interaction: discord.Interaction):
